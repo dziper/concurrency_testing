@@ -21,17 +21,24 @@ async fn mark_label (lab: String, rx : &mut mpsc::Receiver<bool>, tx: &mpsc::Sen
 
 // create macros for this
 async fn print_num(mut rx : mpsc::Receiver<bool>, tx: mpsc::Sender<String>) {
-    // Label!("INIT")
+    // LabelStart!("INIT")
     mark_label("INIT".to_string(), &mut rx, &tx);
     println!("1");
     println!("2");
     // Label!("label 1")
     mark_label("label 1".to_string(), &mut rx, &tx);
+    mark_label("label 1 temp".to_string(), &mut rx, &tx);
     println!("3");
     println!("4");
     println!("5");
     // Label!("label 2")
-    mark_label("label 2".to_string(), &mut rx, &tx);
+    mark_label("label 2".to_string(), &mut rx, &tx);  // --> block here
+    mark_label("label 2 temp".to_string(), &mut rx, &tx);
+    println!("6");
+    println!("7");
+    println!("8");
+    // LabelEnd!("END")
+    mark_label("END".to_string(), &mut rx, &tx);
 }
 
 /*
@@ -69,11 +76,11 @@ async fn test_something_async() {
         print_num(proceed_rx, label_tx)
     );
     println!("spawned task");
-    controller.run_to("label 1".to_string());
-    println!("Thread 1 should be stopped at label 1");
     controller.run_to("label 2".to_string());
+    println!("Thread 1 should be stopped at label 1");
+    // controller.run_to("label 2".to_string());
     println!("End test");
-    
+
     // let c1 = controller.clone("thread1");
     // tokio::spawn(|| {
     //     c1.label("A");
