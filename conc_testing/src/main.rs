@@ -1,8 +1,9 @@
 mod utils;
 mod controller;
-use controller::TestController;
+use controller::{MainController, ThreadController};
 use utils::SharedStrings;
 use tokio::sync::mpsc;
+use macros::mark_label;
 // use log;
 
 async fn echo(thing: String) -> String{
@@ -10,14 +11,14 @@ async fn echo(thing: String) -> String{
 }
 
 
-async fn mark_label (lab: String, rx : &mut mpsc::Receiver<bool>, tx: &mpsc::Sender<String>) {
-    //wait for signal to proceed
-    println!("{}", lab.clone());
-    let _proceed = rx.recv().await.unwrap();
-    println!("2");
-    let _ = tx.send(lab).await;
+// async fn mark_label (lab: String, rx : &mut mpsc::Receiver<bool>, tx: &mpsc::Sender<String>) {
+//     //wait for signal to proceed
+//     println!("{}", lab.clone());
+//     let _proceed = rx.recv().await.unwrap();
+//     println!("2");
+//     let _ = tx.send(lab).await;
 
-}
+// }
 
 // create macros for this
 async fn print_num(mut rx : mpsc::Receiver<bool>, tx: mpsc::Sender<String>) {
@@ -69,7 +70,8 @@ async fn test_something_async() {
 
     let strs = SharedStrings::new();
     //should this be automated?
-    let (mut controller, proceed_rx, label_tx) = TestController::new("thread1".to_string());
+    // let (mut controller, proceed_rx, label_tx) = ThreadController::new("thread1".to_string());
+    let controller = MainController::new();
 
     //create a macro for this 
     tokio::spawn (
