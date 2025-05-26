@@ -32,8 +32,8 @@ async fn print_num(mut rx : mpsc::Receiver<bool>, tx: mpsc::Sender<String>) {
     println!("4");
     println!("5");
     // Label!("label 2")
-    mark_label("label 2".to_string(), &mut rx, &tx);  // --> block here
-    mark_label("label 2 temp".to_string(), &mut rx, &tx);
+    mark_label("label 2".to_string(), &mut rx, &tx);
+    mark_label("label 2 temp".to_string(), &mut rx, &tx); // --> block here
     println!("6");
     println!("7");
     println!("8");
