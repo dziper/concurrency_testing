@@ -2,34 +2,78 @@ mod utils;
 mod controller;
 use controller::TestController;
 use utils::SharedStrings;
+use tokio::sync::mpsc;
+// use log;
 
 async fn echo(thing: String) -> String{
     thing
 }
 
-async fn say_world() {
-    println!("world");
+
+async fn mark_label (lab: String, rx : &mut mpsc::Receiver<bool>, tx: &mpsc::Sender<String>) {
+    //wait for signal to proceed
+    println!("{}", lab.clone());
+    let _proceed = rx.recv().await.unwrap();
+    println!("2");
+    let _ = tx.send(lab).await;
+
 }
+
+// create macros for this
+async fn print_num(mut rx : mpsc::Receiver<bool>, tx: mpsc::Sender<String>) {
+    // Label!("INIT")
+    mark_label("INIT".to_string(), &mut rx, &tx);
+    println!("1");
+    println!("2");
+    // Label!("label 1")
+    mark_label("label 1".to_string(), &mut rx, &tx);
+    println!("3");
+    println!("4");
+    println!("5");
+    // Label!("label 2")
+    mark_label("label 2".to_string(), &mut rx, &tx);
+}
+
+/*
+
+To do : 
+Create a thread to perform tasks 
+Allow it to be "annotated" to take in channels OR controller objects? 
+When spawning the thread, pass in channels OR controller?
+In the thread, call label function
+In the test, send signals
+
+*/
 
 #[tokio::main]
 async fn main() {
-    // Calling `say_world()` does not execute the body of `say_world()`.
-    let op = say_world();
+    // Calling `print_num()` does not execute the body of `print_num()`.
+    //let op = print_num(); --> this is in release mode
 
     // This println! comes first
     println!("hello");
 
     // Calling `.await` on `op` starts executing `say_world`.
-    op.await;
+    // op.await;
 }
 
 #[tokio::test]
 async fn test_something_async() {
-    assert!(true);
 
     let strs = SharedStrings::new();
-    let controller = TestController::new();
+    //should this be automated?
+    let (mut controller, proceed_rx, label_tx) = TestController::new("thread1".to_string());
 
+    //create a macro for this 
+    tokio::spawn (
+        print_num(proceed_rx, label_tx)
+    );
+    println!("spawned task");
+    controller.run_to("label 1".to_string());
+    println!("Thread 1 should be stopped at label 1");
+    controller.run_to("label 2".to_string());
+    println!("End test");
+    
     // let c1 = controller.clone("thread1");
     // tokio::spawn(|| {
     //     c1.label("A");
