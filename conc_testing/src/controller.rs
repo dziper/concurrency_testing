@@ -69,7 +69,7 @@ impl MainController {
 impl Nestable for MainController {
     async fn nest(&self, id: &str) -> Arc<ThreadController> {
         let tc = Arc::new(ThreadController::new(id, self.data.clone()));
-        self.data.write().await.add_thread(&id, tc.clone());
+        self.data.write().await.add_thread(&id, tc.clone()).await;
         return tc;
     }
 }
@@ -86,7 +86,7 @@ impl Nestable for ThreadController {
     async fn nest(&self, id: &str) -> Arc<ThreadController> {
         let new_id = self.id.clone() + id;
         let tc = Arc::new(ThreadController::new(&new_id, self.main_controller_data.clone()));
-        self.main_controller_data.write().await.add_thread(&new_id, tc.clone());
+        self.main_controller_data.write().await.add_thread(&new_id, tc.clone()).await;
         return tc;
     }
 }
@@ -94,7 +94,7 @@ impl Nestable for ThreadController {
 impl ThreadController {
     
     // creates a named controller associated with a thread
-    pub fn new(id: &str, mc_data: Arc<RwLock<MainControllerData>>) -> ThreadController {
+    fn new(id: &str, mc_data: Arc<RwLock<MainControllerData>>) -> ThreadController {
         //create a channel to send "proceed signal" -- this resumes the thread operation
         let proceed = channel::<bool>(1);
         //consume the next label encountered in the thread
@@ -108,7 +108,7 @@ impl ThreadController {
         }
     }
 
-    pub async fn run_to(&self, label: &str){
+    async fn run_to(&self, label: &str) {
         println!("runnto {} for thread {}", label.clone(), self.id.clone());
 
         loop {
@@ -126,8 +126,8 @@ impl ThreadController {
         }
     }
 
-    pub async fn label(&self, label: String) {
+    pub async fn label(&self, label: &str) {
         let _ = self.proceed_chan.1.write().await.recv().await.unwrap();
-        self.label_chan.0.send(label).await;
+        let _ = self.label_chan.0.send(label.to_string()).await;
     }
 }

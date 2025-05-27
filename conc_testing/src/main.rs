@@ -1,9 +1,11 @@
 mod utils;
 mod controller;
-use controller::{MainController, ThreadController};
+use std::sync::Arc;
+use tokio::{spawn, sync::RwLock};
+
+use controller::{MainController, Nestable, ThreadController};
 use utils::SharedStrings;
 use tokio::sync::mpsc;
-use macros::mark_label;
 // use log;
 
 async fn echo(thing: String) -> String{
@@ -21,25 +23,25 @@ async fn echo(thing: String) -> String{
 // }
 
 // create macros for this
-async fn print_num(mut rx : mpsc::Receiver<bool>, tx: mpsc::Sender<String>) {
+async fn print_num(tc: Arc<ThreadController>) {
     // LabelStart!("INIT")
-    mark_label("INIT".to_string(), &mut rx, &tx);
+    tc.label("INIT").await;
     println!("1");
     println!("2");
     // Label!("label 1")
-    mark_label("label 1".to_string(), &mut rx, &tx);
-    mark_label("label 1 temp".to_string(), &mut rx, &tx);
+    tc.label("label 1").await;
+    tc.label("label 1 block").await;
     println!("3");
     println!("4");
     println!("5");
     // Label!("label 2")
-    mark_label("label 2".to_string(), &mut rx, &tx);
-    mark_label("label 2 temp".to_string(), &mut rx, &tx); // --> block here
+    tc.label("label 2").await;
+    tc.label("label 2 block").await; // block here
     println!("6");
     println!("7");
     println!("8");
     // LabelEnd!("END")
-    mark_label("END".to_string(), &mut rx, &tx);
+    tc.label("END").await;
 }
 
 /*
@@ -67,40 +69,29 @@ async fn main() {
 
 #[tokio::test]
 async fn test_something_async() {
+    // let data: Arc<RwLock<Vec<_>>> = Arc::new(RwLock::new(vec![]));
+    let mc = MainController::new();
+    println!("Calling nest");
+    let tc1 = mc.nest("thread1").await;
 
-    let strs = SharedStrings::new();
-    //should this be automated?
-    // let (mut controller, proceed_rx, label_tx) = ThreadController::new("thread1".to_string());
-    let controller = MainController::new();
+    spawn(async {
+        println!("Spawning thread");
+        print_num(tc1).await;
+    });
 
-    //create a macro for this 
-    tokio::spawn (
-        print_num(proceed_rx, label_tx)
-    );
-    println!("spawned task");
-    controller.run_to("label 2".to_string());
-    println!("Thread 1 should be stopped at label 1");
-    // controller.run_to("label 2".to_string());
-    println!("End test");
+    // assert!(false);
 
-    // let c1 = controller.clone("thread1");
-    // tokio::spawn(|| {
-    //     c1.label("A");
-    //     c1.label("B");
-    // });
+    println!("CALLING RUN TO 1");
+    mc.run_to("thread1", "label 1").await;
+    println!("RAN TO LABEL 1");
 
-    // let c2 = controller.clone("thread2");
-    // tokio::spawn({
-    //     c2.label("A");
-    //     c2.label("B");
-    //     for i in 1..2 {
-    //         let ci = c2.clone(i);
-    //         tokio::spawn({
-    //             ci.label("D");
-    //             ci.label("E");
-    //         })
-    //     }
-    // });
+    println!("CALLING RUN TO 2");
+    mc.run_to("thread1", "label 2").await;
+    println!("RAN TO LABEL 2");
 
-    // controller.order(vec!["thread1.A", "thread2.A", "thread2.B", "thread1.B", "thread2.1.D", "thread2.2.D"]);
+    println!("CALLING RUN TO END");
+    mc.run_to("thread1", "END").await;
+    println!("RAN TO LABEL END");
+
+    assert!(false);
 }
