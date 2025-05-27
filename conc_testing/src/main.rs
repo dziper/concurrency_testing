@@ -1,7 +1,8 @@
 mod utils;
 mod controller;
 use std::sync::Arc;
-use tokio::{spawn, sync::RwLock};
+use tokio::{join, spawn, sync::RwLock};
+use tokio::time::{sleep, Duration};
 
 use controller::{MainController, Nestable, ThreadController};
 use utils::SharedStrings;
@@ -44,6 +45,36 @@ async fn print_num(tc: Arc<ThreadController>) {
     tc.label("END").await;
 }
 
+async fn print_num_shared_write(tc: Arc<ThreadController>, offset: i32, data: Arc<RwLock<Vec<i32>>>) {
+    // LabelStart!("INIT")
+    tc.label("INIT").await;
+    data.write().await.push(offset + 1);
+    sleep(Duration::from_millis(10)).await;
+    data.write().await.push(offset + 2);
+
+    // Label!("label 1")
+    tc.label("label 1").await;
+    tc.label("label 1 block").await;
+    data.write().await.push(offset + 3);
+    sleep(Duration::from_millis(10)).await;
+    data.write().await.push(offset + 4);
+    sleep(Duration::from_millis(10)).await;
+    data.write().await.push(offset + 5);
+
+    // Label!("label 2")
+    tc.label("label 2").await;
+    tc.label("label 2 block").await; // block here
+    data.write().await.push(offset + 6);
+    sleep(Duration::from_millis(10)).await;
+    data.write().await.push(offset + 7);
+    sleep(Duration::from_millis(10)).await;
+    data.write().await.push(offset + 8);
+    // LabelEnd!("END")
+    tc.label("END").await;
+    data.write().await.push(offset + 9);
+}
+
+
 /*
 
 To do : 
@@ -68,30 +99,119 @@ async fn main() {
 }
 
 #[tokio::test]
-async fn test_something_async() {
-    // let data: Arc<RwLock<Vec<_>>> = Arc::new(RwLock::new(vec![]));
+async fn test_one_thread() {
+    let data: Arc<RwLock<Vec<i32>>> = Arc::new(RwLock::new(vec![]));
     let mc = MainController::new();
     println!("Calling nest");
     let tc1 = mc.nest("thread1").await;
 
+    let dc = data.clone();
     spawn(async {
         println!("Spawning thread");
-        print_num(tc1).await;
+        print_num_shared_write(tc1, 0, dc).await;
     });
 
     // assert!(false);
+    assert_eq!(Vec::<i32>::new(), *data.read().await);
 
-    println!("CALLING RUN TO 1");
     mc.run_to("thread1", "label 1").await;
-    println!("RAN TO LABEL 1");
+    assert_eq!(vec![1,2], *data.read().await);
 
-    println!("CALLING RUN TO 2");
     mc.run_to("thread1", "label 2").await;
-    println!("RAN TO LABEL 2");
+    assert_eq!(vec![1,2,3,4,5], *data.read().await);
 
-    println!("CALLING RUN TO END");
     mc.run_to("thread1", "END").await;
-    println!("RAN TO LABEL END");
+    assert_eq!(vec![1,2,3,4,5,6,7,8,9], *data.read().await);
+}
 
-    assert!(false);
+#[tokio::test]
+async fn test_two_threads() {
+    let data: Arc<RwLock<Vec<i32>>> = Arc::new(RwLock::new(vec![]));
+    let mc = MainController::new();
+    println!("Calling nest");
+    
+    let tc1 = mc.nest("thread1").await;
+    let tc2 = mc.nest("thread2").await;
+
+    let dc1 = data.clone();
+    let dc2 = data.clone();
+    
+    spawn(async {
+        println!("Spawning thread 1");
+        print_num_shared_write(tc1, 0, dc1).await;
+    });
+
+    spawn(async {
+        println!("Spawning thread 2");
+        print_num_shared_write(tc2, 10, dc2).await;
+    });
+    
+
+    // assert!(false);
+    assert_eq!(Vec::<i32>::new(), *data.read().await);
+
+    mc.run_to("thread1", "label 1").await;
+    assert_eq!(vec![1,2], *data.read().await);
+
+    mc.run_to("thread2", "label 2").await;
+    assert_eq!(vec![1,2,11,12,13,14,15], *data.read().await);
+
+    mc.run_to("thread1", "label 2").await;
+    assert_eq!(vec![1,2,11,12,13,14,15,3,4,5], *data.read().await);
+
+    mc.run_to("thread1", "END").await;
+    assert_eq!(vec![1,2,11,12,13,14,15,3,4,5,6,7,8,9], *data.read().await);
+
+    mc.run_to("thread2", "END").await;
+    assert_eq!(vec![1,2,11,12,13,14,15,3,4,5,6,7,8,9,16,17,18,19], *data.read().await);
+}
+
+
+#[tokio::test]
+async fn test_two_threads_join() {
+    let data: Arc<RwLock<Vec<i32>>> = Arc::new(RwLock::new(vec![]));
+    let mc = MainController::new();
+    println!("Calling nest");
+    
+    let tc1 = mc.nest("thread1").await;
+    let tc2 = mc.nest("thread2").await;
+
+    let dc1 = data.clone();
+    let dc2 = data.clone();
+    
+    spawn(async {
+        println!("Spawning thread 1");
+        print_num_shared_write(tc1, 0, dc1).await;
+    });
+
+    spawn(async {
+        println!("Spawning thread 2");
+        print_num_shared_write(tc2, 10, dc2).await;
+    });
+    
+
+    // assert!(false);
+    assert_eq!(Vec::<i32>::new(), *data.read().await);
+
+
+    mc.run_to("thread1", "label 1").await;
+    assert_eq!(vec![1,2], *data.read().await);
+
+    join!(
+       mc.run_to("thread2", "label 2"),
+       mc.run_to("thread1", "END"),
+    );
+    let exp = vec![1,2,11,12,13,14,15,3,4,5,6,7,8,9];
+    for e in &exp {
+        assert!(data.read().await.contains(e));
+    }
+    assert_eq!(exp.len(), data.read().await.len());
+
+
+    mc.run_to("thread2", "END").await;
+    let exp = vec![1,2,11,12,13,14,15,3,4,5,6,7,8,9,16,17,18,19];
+    for e in &exp {
+        assert!(data.read().await.contains(e));
+    }
+    assert_eq!(exp.len(), data.read().await.len());
 }
