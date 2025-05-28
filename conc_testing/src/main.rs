@@ -130,39 +130,41 @@ async fn test_two_threads() {
     let mc = MainController::new();
     println!("Calling nest");
     
+    let tc0 = mc.nest("thread0").await;
     let tc1 = mc.nest("thread1").await;
-    let tc2 = mc.nest("thread2").await;
 
+    let dc0 = data.clone();
     let dc1 = data.clone();
-    let dc2 = data.clone();
     
     spawn(async {
-        println!("Spawning thread 1");
-        print_num_shared_write(tc1, 0, dc1).await;
+        println!("Spawning thread 0");
+        // Thread 0 puts 1-9 into data
+        print_num_shared_write(tc0, 0, dc0).await;
     });
 
     spawn(async {
-        println!("Spawning thread 2");
-        print_num_shared_write(tc2, 10, dc2).await;
+        println!("Spawning thread 1");
+        // Thread 1 puts 1-9 into data
+        print_num_shared_write(tc1, 10, dc1).await;
     });
     
 
     // assert!(false);
     assert_eq!(Vec::<i32>::new(), *data.read().await);
 
-    mc.run_to("thread1", "label 1").await;
+    mc.run_to("thread0", "label 1").await;
     assert_eq!(vec![1,2], *data.read().await);
 
-    mc.run_to("thread2", "label 2").await;
+    mc.run_to("thread1", "label 2").await;
     assert_eq!(vec![1,2,11,12,13,14,15], *data.read().await);
 
-    mc.run_to("thread1", "label 2").await;
+    mc.run_to("thread0", "label 2").await;
     assert_eq!(vec![1,2,11,12,13,14,15,3,4,5], *data.read().await);
 
-    mc.run_to("thread1", "END").await;
+    mc.run_to("thread0", "END").await;
     assert_eq!(vec![1,2,11,12,13,14,15,3,4,5,6,7,8,9], *data.read().await);
 
-    mc.run_to("thread2", "END").await;
+    mc.run_to("thread1", "END").await;
     assert_eq!(vec![1,2,11,12,13,14,15,3,4,5,6,7,8,9,16,17,18,19], *data.read().await);
 }
 
@@ -173,34 +175,32 @@ async fn test_two_threads_join() {
     let mc = MainController::new();
     println!("Calling nest");
     
-    let tc1 = mc.nest("thread1").await;
-    let tc2 = mc.nest("thread2").await;
+    let tc0 = mc.nest("thread0").await;
+    let tc2 = mc.nest("thread1").await;
 
-    let dc1 = data.clone();
+    let dc0 = data.clone();
     let dc2 = data.clone();
     
     spawn(async {
-        println!("Spawning thread 1");
-        print_num_shared_write(tc1, 0, dc1).await;
+        println!("Spawning thread 0");
+        print_num_shared_write(tc0, 0, dc0).await;
     });
 
     spawn(async {
-        println!("Spawning thread 2");
+        println!("Spawning thread 1");
         print_num_shared_write(tc2, 10, dc2).await;
     });
     
-
-    // assert!(false);
     assert_eq!(Vec::<i32>::new(), *data.read().await);
 
-
-    mc.run_to("thread1", "label 1").await;
+    mc.run_to("thread0", "label 1").await;
     assert_eq!(vec![1,2], *data.read().await);
 
     join!(
-       mc.run_to("thread2", "label 2"),
-       mc.run_to("thread1", "END"),
+       mc.run_to("thread1", "label 2"),
+       mc.run_to("thread0", "END"),
     );
+    // Threads run concurrently so their execution may be interleaved
     let exp = vec![1,2,11,12,13,14,15,3,4,5,6,7,8,9];
     for e in &exp {
         assert!(data.read().await.contains(e));
@@ -208,7 +208,7 @@ async fn test_two_threads_join() {
     assert_eq!(exp.len(), data.read().await.len());
 
 
-    mc.run_to("thread2", "END").await;
+    mc.run_to("thread1", "END").await;
     let exp = vec![1,2,11,12,13,14,15,3,4,5,6,7,8,9,16,17,18,19];
     for e in &exp {
         assert!(data.read().await.contains(e));
