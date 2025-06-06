@@ -1,6 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 use tokio::{sync::{mpsc::{Sender, Receiver, channel}, RwLock}};
 
+use crate::labelSpec::LabelTrait;
+
 pub trait Nestable {
     async fn nest(&self, id: &str) -> Arc<ThreadController>;
 }
@@ -108,6 +110,8 @@ impl ThreadController {
         }
     }
 
+    // async fn run_to(&self, thread: &str, label: &impl LabelTrait) {
+    // }
     async fn run_to(&self, label: &str) {
         println!("runnto {} for thread {}", label.clone(), self.id.clone());
 
@@ -131,3 +135,5 @@ impl ThreadController {
         let _ = self.label_chan.0.send(label.to_string()).await;
     }
 }
+
+// 

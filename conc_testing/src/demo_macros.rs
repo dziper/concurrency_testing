@@ -21,7 +21,7 @@ async fn demo(offset: i32, data: Arc<RwLock<Vec<i32>>>) {
 }
 
 // After macro expansion, note NO INIT,END. This is responsibility of Spawn! not #testable
-async fn demo(tc: Arc<ThreadController>, offset: i32, data: Arc<RwLock<Vec<i32>>>) {
+async fn demo(tc: &Arc<ThreadController>, offset: i32, data: Arc<RwLock<Vec<i32>>>) {
     data.write().await.push(offset + 0);
 
     tc.label("label 1").await;
@@ -41,7 +41,7 @@ fn sync_fn() {
     Label!("label 1");
 }
 // After expansion
-fn sync_fn(tc: Arc<ThreadController>) {
+fn sync_fn(tc: &Arc<ThreadController>) {
     tc.label("label 1").await;
     tc.label("label 1 block").await;
 }
@@ -55,7 +55,7 @@ async fn async_fn() {
     Label!("label 2");
 }
 
-async fn async_fn(tc: Arc<ThreadController>) {
+async fn async_fn(tc: &Arc<ThreadController>) {
     tc.label("label 0").await;
     tc.label("label 0 block").await;
 
@@ -70,7 +70,7 @@ async fn async_fn(tc: Arc<ThreadController>) {
 // Spawning
 
 #[testable]
-async fn demo_spawn(offset: i32, data: Arc<RwLock<Vec<i32>>>) {
+async fn demo_spawn(offset: i32, data: &Arc<RwLock<Vec<i32>>>) {
     Spawn!("spawned", async {
         // Arbitrary Code
     });
@@ -80,7 +80,7 @@ async fn demo_spawn(offset: i32, data: Arc<RwLock<Vec<i32>>>) {
     });
 }
 
-async fn demo_spawn(tc: Arc<ThreadController>, offset: i32, data: Arc<RwLock<Vec<i32>>>) {
+async fn demo_spawn(tc: &Arc<ThreadController>, offset: i32, data: Arc<RwLock<Vec<i32>>>) {
     let tcNew = tc.nest("spawned").await;
     // Note each tcNew is immediately moved into spawned thread. They are different objects.
     tokio::spawn(async {
@@ -107,7 +107,7 @@ async fn demo_spawn(tc: Arc<ThreadController>, offset: i32, data: Arc<RwLock<Vec
 
 // Join Set
 
-async fn demo_joinset(tc: Arc<ThreadController>, offset: i32, data: Arc<RwLock<Vec<i32>>>) {
+async fn demo_joinset(tc: &Arc<ThreadController>, offset: i32, data: Arc<RwLock<Vec<i32>>>) {
     let mut set: JoinSet<i32> = JoinSet::new(); 
     for i in 0..5 {
         let tcNew = tc.nest("spawned"+str(i)).await;
@@ -133,7 +133,7 @@ async fn demo_joinset(tc: Arc<ThreadController>, offset: i32, data: Arc<RwLock<V
 }
 
 #[testable]
-async fn demo_joinset(tc: Arc<ThreadController>, offset: i32, data: Arc<RwLock<Vec<i32>>>) {
+async fn demo_joinset(tc: &Arc<ThreadController>, offset: i32, data: Arc<RwLock<Vec<i32>>>) {
     let mut set: JoinSet<i32> = JoinSet::new(); 
     for i in 0..5 {
         SpawnJoinset!("spawned"+str(i), set, async {
@@ -164,8 +164,8 @@ impl MyTestableObj {
 struct MyTestableObj {}
 
 impl MyTestableObj {
-    async fn thing1(&self, tc: Arc<ThreadController>, arg1: i32) -> i32 {}
-    async fn thing2(&self, tc: Arc<ThreadController>, arg1: i32) -> i32 {}
+    async fn thing1(&self, tc: &Arc<ThreadController>, arg1: i32) -> i32 {}
+    async fn thing2(&self, tc: &Arc<ThreadController>, arg1: i32) -> i32 {}
 }
 
 
@@ -182,6 +182,6 @@ impl MyPartiallyTestableObj {
 
 struct MyPartiallyTestableObj {}
 impl MyPartiallyTestableObj {
-    async fn thing1(&self, tc: Arc<ThreadController>, arg1: i32) -> i32 {}
+    async fn thing1(&self, tc: &Arc<ThreadController>, arg1: i32) -> i32 {}
     async fn thing2(&self, arg1: i32) -> i32 {}
 }
