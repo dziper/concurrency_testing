@@ -11,7 +11,7 @@ pub struct StringLabel {
     hit: bool
 }
 impl StringLabel {
-    fn new(label: &str) -> StringLabel {
+    pub fn new(label: &str) -> StringLabel {
         return StringLabel {
             label: label.to_string(),
             hit: false
@@ -38,7 +38,7 @@ pub struct RegexLabel {
     hit: bool
 }
 impl RegexLabel {
-    fn new(pattern: Regex) -> RegexLabel {
+    pub fn new(pattern: Regex) -> RegexLabel {
         return RegexLabel {
             pattern: pattern,
             hit: false
@@ -60,21 +60,21 @@ impl LabelTrait for RegexLabel {
 }
 
 
-pub struct RepeatedLabel<'a> {
-    label: &'a mut dyn LabelTrait,
+pub struct RepeatedLabel {
+    label: Box<dyn LabelTrait>,
     count: u64,
     current_count: u64
 }
-impl<'a> RepeatedLabel<'a> {
-    fn new(label: &mut impl LabelTrait, count: u64) -> RepeatedLabel<'_> {
+impl RepeatedLabel {
+    pub fn new<L:LabelTrait + 'static>(label: L, count: u64) -> RepeatedLabel {
         RepeatedLabel {
-            label: label,
+            label: Box::new(label),
             count: count,
             current_count: 0
         }
     }
 }
-impl<'a> LabelTrait for RepeatedLabel<'a> {
+impl LabelTrait for RepeatedLabel {
     fn register(&mut self, label: &str) {
         self.label.register(label);
         if self.label.reached() {
@@ -88,5 +88,29 @@ impl<'a> LabelTrait for RepeatedLabel<'a> {
     fn reset(&mut self) {
         self.current_count = 0;
         self.label.reset();
+    }
+}
+
+pub struct OrLabel {
+    labels: Vec<Box<dyn LabelTrait>>,
+}
+impl OrLabel {
+    pub fn new<L:LabelTrait + 'static>(labels: Vec<L>) -> OrLabel {
+        OrLabel {
+            labels: labels.into_iter().map(|l| Box::new(l) as Box<dyn LabelTrait>).collect(),
+        }
+    }
+}
+impl LabelTrait for OrLabel {
+    fn register(&mut self, label: &str) {
+        for l in &mut self.labels {
+            l.register(label);
+        }
+    }
+    fn reached(&self) -> bool {
+        return self.labels.iter().any(|l| l.reached());
+    }
+    fn reset(&mut self) {
+        self.labels.iter_mut().for_each(|l| l.reset());
     }
 }

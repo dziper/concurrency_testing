@@ -51,7 +51,7 @@ fn sync_fn(tc: &Arc<ThreadController>) {
 #[testable]
 async fn async_fn() {
     Label!("label 0");
-    sync_fn();
+    Call!(sync_fn());
     Label!("label 2");
 }
 
