@@ -7,8 +7,8 @@ from
     Label!("label 1");
 
 to
-    tc.label("label 1").await;
-    tc.label("label 1 block").await;
+    tokitestThreadController.label("label 1").await;
+    tokitestThreadController.label("label 1 block").await;
 */
 #[proc_macro]
 pub fn Label(input: TokenStream) -> TokenStream {
@@ -52,6 +52,25 @@ pub fn testable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     })
 }
 
+/*
+from
+    #[testable]
+    fn <fn_name1> (args1){
+        Call!(fn_name2(args2))
+    }
+
+    #[testable]
+    fn <fn_name2> (args){
+    }
+to
+    fn <fn_name1> (tc &std::sync::Arc<ThreadController>, args1) {
+        fn_name2(tc, args2)
+    }
+
+    fn <fn_name2> (tc &std::sync::Arc<ThreadController>, args2) {
+
+    }
+*/
 // #[macro_export]
 // macro_rules! Call {
 //     ($func:ident $(, $arg:expr)* $(,)?) => {

@@ -1,4 +1,5 @@
-use conc_testing::{controller, labelSpec, macrospec, utils};
+use conc_testing::{controller, labelSpec, utils};
+use macros;
 
 use std::sync::Arc;
 use tokio::{join, spawn, sync::RwLock};
@@ -8,7 +9,7 @@ use controller::{MainController, Nestable, ThreadController};
 use utils::SharedStrings;
 use tokio::sync::mpsc;
 
-use macrospec::{Label, testable};
+use macros::{Label, testable};
 // use log;
 
 async fn echo(thing: String) -> String{
@@ -51,9 +52,9 @@ async fn print_num_shared_write(offset: i32, data: Arc<RwLock<Vec<i32>>>) {
 
 /*
 
-To do : 
-Create a thread to perform tasks 
-Allow it to be "annotated" to take in channels OR controller objects? 
+To do :
+Create a thread to perform tasks
+Allow it to be "annotated" to take in channels OR controller objects?
 When spawning the thread, pass in channels OR controller?
 In the thread, call label function
 In the test, send signals
@@ -69,9 +70,11 @@ async fn test_one_thread() {
     let tokitestThreadController = mc.nest("thread1").await;
 
     let dc = data.clone();
-    spawn(async {
+    spawn(async move {  // Actually seems like we need async move
+        tokitestThreadController.label("INIT").await;
         println!("Spawning thread");
-        print_num_shared_write(0, dc).await;
+        print_num_shared_write(&tokitestThreadController, 0, dc).await;
+        tokitestThreadController.label("END").await;
     });
 
     // assert!(false);
@@ -92,24 +95,28 @@ async fn test_two_threads() {
     let data: Arc<RwLock<Vec<i32>>> = Arc::new(RwLock::new(vec![]));
     let mc = MainController::new();
     println!("Calling nest");
-    
+
     let dc0 = data.clone();
     let dc1 = data.clone();
-    
+
     let tokitestThreadController  = mc.nest("thread0").await;
-    spawn(async {
+    spawn(async move {
+        tokitestThreadController.label("INIT").await;
         println!("Spawning thread 0");
         // Thread 0 puts 1-9 into data
-        print_num_shared_write(0, dc0).await;
+        print_num_shared_write(&tokitestThreadController, 0, dc0).await;
+        tokitestThreadController.label("END").await;
     });
 
     let tokitestThreadController  = mc.nest("thread1").await;
-    spawn(async {
+    spawn(async move {
+        tokitestThreadController.label("INIT").await;
         println!("Spawning thread 1");
         // Thread 1 puts 1-9 into data
-        print_num_shared_write(10, dc1).await;
+        print_num_shared_write(&tokitestThreadController,10, dc1).await;
+        tokitestThreadController.label("END").await;
     });
-    
+
 
     // assert!(false);
     assert_eq!(Vec::<i32>::new(), *data.read().await);
@@ -127,7 +134,7 @@ async fn test_two_threads() {
     assert_eq!(vec![1,2,11,12,13,14,15,3,4,5,6,7,8], *data.read().await);
 
     mc.run_to("thread1", "END").await;
-    assert_eq!(vec![1,2,11,12,13,14,15,3,4,5,6,7,8,16,17,18,19], *data.read().await);
+    assert_eq!(vec![1,2,11,12,13,14,15,3,4,5,6,7,8,16,17,18], *data.read().await);
 }
 
 
@@ -136,26 +143,28 @@ async fn test_two_threads_join() {
     let data: Arc<RwLock<Vec<i32>>> = Arc::new(RwLock::new(vec![]));
     let mc = MainController::new();
     println!("Calling nest");
-    
+
     let dc0 = data.clone();
-    let dc2 = data.clone();
-    
+    let dc1 = data.clone();
+
     let tokitestThreadController  = mc.nest("thread0").await;
-    spawn(async {
+    spawn(async move {
+        tokitestThreadController.label("INIT").await;
         println!("Spawning thread 0");
         // Thread 0 puts 1-9 into data
-        print_num_shared_write(0, dc0).await;
+        print_num_shared_write(&tokitestThreadController, 0, dc0).await;
+        tokitestThreadController.label("END").await;
     });
 
     let tokitestThreadController  = mc.nest("thread1").await;
-    spawn(async {
+    spawn(async move {
+        tokitestThreadController.label("INIT").await;
         println!("Spawning thread 1");
         // Thread 1 puts 1-9 into data
-        print_num_shared_write(10, dc1).await;
+        print_num_shared_write(&tokitestThreadController, 10, dc1).await;
+        tokitestThreadController.label("END").await;
     });
-    
 
-    
     assert_eq!(Vec::<i32>::new(), *data.read().await);
 
     mc.run_to("thread0", "label 1").await;
@@ -174,7 +183,7 @@ async fn test_two_threads_join() {
 
 
     mc.run_to("thread1", "END").await;
-    let exp = vec![1,2,11,12,13,14,15,3,4,5,6,7,8,16,17,18,19];
+    let exp = vec![1,2,11,12,13,14,15,3,4,5,6,7,8,16,17,18];
     for e in &exp {
         assert!(data.read().await.contains(e));
     }

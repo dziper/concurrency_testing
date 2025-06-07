@@ -70,6 +70,7 @@ name = "conc_testing"
 version = "0.1.0"
 dependencies = [
  "log",
+ "macros",
  "regex",
  "tokio",
 ]

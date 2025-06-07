@@ -136,9 +136,10 @@ impl ThreadController {
     }
 
     pub async fn label(&self, label: &str) {
+        println!("{} Entering label {}", self.id, label);
         let _ = self.proceed_chan.1.write().await.recv().await.unwrap();
+        println!("{} write lock for red label {}", self.id, label);
         let _ = self.label_chan.0.send(label.to_string()).await;
+        println!("{} exiting {}", self.id, label);
     }
 }
-
-// 

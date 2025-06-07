@@ -13,3 +13,7 @@ members = [
 tokio = { version = "1", features = ["full"] }
 log = "0.4"
 regex = "1"
+macros = { path = "macros" }
+
+[dev-dependencies]
+macros = { path = "macros" }
