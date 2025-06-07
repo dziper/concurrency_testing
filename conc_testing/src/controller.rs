@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 use tokio::{sync::{mpsc::{Sender, Receiver, channel}, RwLock}};
 
-use crate::labelSpec::{LabelTrait, StringLabel};
+use crate::label_spec::{LabelTrait, StringLabel};
 
 pub trait Nestable {
     async fn nest(&self, id: &str) -> Arc<ThreadController>;
@@ -25,7 +25,7 @@ impl MainControllerData {
         self.thread_controllers.insert(id.to_string(), tc.clone());
         match self.waiting_for.get(id) {
             Some(tx) => {
-                tx.send(tc.clone()).await;
+                let _ = tx.send(tc.clone()).await;
                 self.waiting_for.remove(id);
             },
             None => {}
@@ -43,9 +43,17 @@ impl MainController {
         MainController { data: Arc::new(RwLock::new(MainControllerData::new())) }
     }
 
+    pub async fn run_to_end(&self, id: &str) {
+        self.run_to(id, "END");
+    }
+
     pub async fn run_to(&self, id: &str, label: &str) {
+        self.run_to_label(id, StringLabel::new(label)).await;
+    }
+
+    pub async fn run_to_label(&self, id: &str, label: impl LabelTrait) {
         let thread_controller = self.get_thread_controller(id).await;
-        thread_controller.run_to(label).await;
+        thread_controller.run_to_label(label).await;
     }
 
     async fn get_thread_controller(&self, id: &str) -> Arc<ThreadController> {

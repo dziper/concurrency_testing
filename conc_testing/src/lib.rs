@@ -1,2 +1,2 @@
 pub mod controller;
-pub mod labelSpec;
+pub mod label_spec;

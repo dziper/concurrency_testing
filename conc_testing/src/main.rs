@@ -1,5 +1,5 @@
 mod controller;
-mod labelSpec;
+mod label_spec;
 
 use std::sync::Arc;
 use tokio::{sync::RwLock, spawn, join};

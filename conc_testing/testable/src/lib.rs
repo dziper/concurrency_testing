@@ -1,7 +1,8 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, LitStr, ItemFn, FnArg, Expr, Token};
+use syn::{parse_macro_input, Expr, ExprCall, FnArg, ItemFn, LitStr, Token};
 use syn::parse::{Parse, ParseStream};
+use syn::{punctuated::Punctuated};
 
 
 /*
@@ -104,20 +105,55 @@ to
 
     }
 */
+// #[proc_macro]
+// pub fn Call(input: TokenStream) -> TokenStream {
+//     use syn::{parse_macro_input, ExprCall};
+
+//     let expr = parse_macro_input!(input as ExprCall);
+//     let func = &expr.func;
+//     let args = &expr.args;
+
+//     let expanded = quote! {
+//         #func(tokitest_thread_controller.clone(), #args)
+//     };
+
+//     TokenStream::from(expanded)
+// }
 #[proc_macro]
 pub fn Call(input: TokenStream) -> TokenStream {
-    use syn::{parse_macro_input, ExprCall};
+    let expr = parse_macro_input!(input as Expr);
 
-    let expr = parse_macro_input!(input as ExprCall);
-    let func = &expr.func;
-    let args = &expr.args;
+    match expr {
+        Expr::Call(ExprCall { func, args, .. }) => {
+            let expanded = quote! {
+                #func(tokitest_thread_controller.clone(), #args)
+            };
+            TokenStream::from(expanded)
+        }
+        Expr::MethodCall(mut method_call) => {
+            let method = &method_call.method;
+            let receiver = &method_call.receiver;
+            let args = &method_call.args;
 
-    let expanded = quote! {
-        #func(tokitest_thread_controller.clone(), #args)
-    };
-
-    TokenStream::from(expanded)
+            let expanded = quote! {
+                #receiver.#method(tokitest_thread_controller.clone(), #args)
+            };
+            TokenStream::from(expanded)
+        }
+        other => syn::Error::new_spanned(other, "Call! macro supports only function or method calls")
+            .to_compile_error()
+            .into(),
+    }
 }
+
+
+/*
+Call!(some_func(x, y));            // Expands to: some_func(tokitest_thread_controller.clone(), x, y)
+
+Call!(obj.method(a, b));           // Expands to: obj.method(tokitest_thread_controller.clone(), a, b)
+
+Call!(obj1.obj2.func(z));          // Expands to: obj1.obj2.func(tokitest_thread_controller.clone(), z)
+*/
 
 
 /*
@@ -213,7 +249,72 @@ to
 #[proc_macro]
 pub fn CreateMainController(_input: TokenStream) -> TokenStream {
     let expanded = quote! {
-        let tokitest_thread_controller = MainController::new();
+        let tokitest_main_controller = Arc::new(MainController::new());
+        let tokitest_thread_controller = tokitest_main_controller.nest("").await;
     };
+    TokenStream::from(expanded)
+}
+
+struct RunToArgs {
+    args: Punctuated<Expr, Token![,]>,
+}
+
+impl Parse for RunToArgs {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        Ok(RunToArgs {
+            args: Punctuated::parse_terminated(input)?,
+        })
+    }
+}
+
+
+#[proc_macro]
+pub fn RunTo(input: TokenStream) -> TokenStream {
+    let RunToArgs { args } = syn::parse_macro_input!(input as RunToArgs);
+
+    // Expect exactly two arguments
+    // TODO: may want to allow non string literal?
+    if args.len() != 2 {
+        return syn::Error::new_spanned(args, "RunTo! requires exactly two arguments: a string literal and an expression")
+            .to_compile_error()
+            .into();
+    }
+
+    let mut args_iter = args.into_iter();
+    let label_expr = args_iter.next().unwrap();
+    let second_expr = args_iter.next().unwrap();
+
+    // First argument must be a LitStr
+    let label_lit = match &label_expr {
+        syn::Expr::Lit(syn::ExprLit {
+            lit: syn::Lit::Str(lit_str),
+            ..
+        }) => lit_str,
+        _ => {
+            return syn::Error::new_spanned(label_expr, "First argument to RunTo! must be a string literal")
+                .to_compile_error()
+                .into();
+        }
+    };
+
+    // Now check whether second argument is also a LitStr
+    let expanded = match &second_expr {
+        syn::Expr::Lit(syn::ExprLit {
+            lit: syn::Lit::Str(_),
+            ..
+        }) => {
+            // Both are string literals
+            quote! {
+                tokitest_main_controller.run_to(#label_lit, #second_expr)
+            }
+        }
+        _ => {
+            // Second argument is a general expression, assume is a LabelTrait
+            quote! {
+                tokitest_main_controller.run_to_label(#label_lit, #second_expr)
+            }
+        }
+    };
+
     TokenStream::from(expanded)
 }
