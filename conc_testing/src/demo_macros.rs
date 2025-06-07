@@ -186,27 +186,27 @@ impl MyPartiallyTestableObj {
     async fn thing2(&self, arg1: i32) -> i32 {}
 }
 
-// f1 = async {
-//     if tc.networkDead() {
-//         return Err
-//     }
-//     return networkcall()
-// };
+f1 = async {
+    if tc.networkDead() {
+        return Err
+    }
+    return networkcall()
+};
 
 async fn networkcall() -> Result<()> {
 
 }
 
-// async fn caller (tokitestThreadController ) {
-//     f1 = NetworkCall!(networkcall());
+async fn caller (tokitest_thread_controller ) {
+    f1 = NetworkCall!(networkcall());
 
-//     f2 = networkcall();
+    f2 = networkcall();
 
-//     //some code logic
+    //some code logic
 
-//     select! {
-//         f1.await,
-//         f2.await
-//     }
+    select! {
+        f1.await,
+        f2.await
+    }
     
-// }
+}

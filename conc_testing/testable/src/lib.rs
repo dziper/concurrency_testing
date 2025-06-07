@@ -9,8 +9,8 @@ from
     Label!("label 1");
 
 to
-    tokitestThreadController.label("label 1").await;
-    tokitestThreadController.label("label 1 block").await;
+    tokitest_thread_controller.label("label 1").await;
+    tokitest_thread_controller.label("label 1 block").await;
 */
 #[proc_macro]
 pub fn Label(input: TokenStream) -> TokenStream {
@@ -19,8 +19,8 @@ pub fn Label(input: TokenStream) -> TokenStream {
     let block_label = format!("{} block", label_str);
 
     let expanded = quote! {
-        tokitestThreadController.label(#label).await;
-        tokitestThreadController.label(#block_label).await;
+        tokitest_thread_controller.label(#label).await;
+        tokitest_thread_controller.label(#block_label).await;
     };
     TokenStream::from(expanded)
 }
@@ -32,7 +32,7 @@ from
     fn <fn_name> (args){
     }
 to
-    fn <fn_name> (tokitestThreadController &std::sync::Arc<ThreadController>, args){
+    fn <fn_name> (tokitest_thread_controller &std::sync::Arc<ThreadController>, args){
     }
 */
 #[proc_macro_attribute]
@@ -41,17 +41,49 @@ pub fn testable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     // Create the first argument: controller: &Arc<ThreadController>
     let controller_arg: FnArg = syn::parse_quote! {
-        tokitestThreadController: std::sync::Arc<ThreadController>
+        tokitest_thread_controller: std::sync::Arc<ThreadController>
     };
 
-    // Insert as first parameter
-    input_fn.sig.inputs.insert(0, controller_arg);
+    let insert_pos = match input_fn.sig.inputs.first() {
+        Some(syn::FnArg::Receiver(_)) => 1, // after &self or self
+        _ => 0,                             // normal free function
+    };
+
+    input_fn.sig.inputs.insert(insert_pos, controller_arg);
 
     // Return modified function
     TokenStream::from(quote! {
         #input_fn
     })
 }
+
+#[proc_macro_attribute]
+pub fn Testable(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let mut impl_block = syn::parse_macro_input!(item as syn::ItemImpl);
+
+    for impl_item in impl_block.items.iter_mut() {
+        if let syn::ImplItem::Fn(method) = impl_item {
+            // Build the controller argument
+            let controller_arg: syn::FnArg = syn::parse_quote! {
+                tokitest_thread_controller: std::sync::Arc<ThreadController>
+            };
+
+            // Where to insert: after `self` if present
+            let insert_pos = match method.sig.inputs.first() {
+                Some(syn::FnArg::Receiver(_)) => 1,
+                _ => 0,
+            };
+
+            method.sig.inputs.insert(insert_pos, controller_arg);
+        }
+    }
+
+    // Return modified impl block
+    TokenStream::from(quote! {
+        #impl_block
+    })
+}
+
 
 /*
 from
@@ -81,30 +113,31 @@ pub fn Call(input: TokenStream) -> TokenStream {
     let args = &expr.args;
 
     let expanded = quote! {
-        #func(tokitestThreadController.clone(), #args)
+        #func(tokitest_thread_controller.clone(), #args)
     };
 
     TokenStream::from(expanded)
 }
 
 
-#[proc_macro]
-pub fn NetworkCall(input: TokenStream) -> TokenStream {
-    let call = syn::parse_macro_input!(input as syn::Expr);
+/*
+from
+    Spawn!("child thread", async {
+        // some async code
+    });
 
-    let expanded = quote! {
-        async {
-            if tokitestThreadController.networkDead() {
-                return Err("Network is dead");
-            }
-            #call
-        }
-    };
-
-    TokenStream::from(expanded)
-}
-
-
+to
+    let tcNew = tokitest_thread_controller.nest("child thread").await;
+    tokio::spawn(async move {
+        tcNew.label("INIT").await;
+        let tokitest_thread_controller = tcNew.clone();
+        let result = { 
+            // some async code
+        }.await;
+        tcNew.label("END").await;
+        result
+    })
+*/
 #[proc_macro]
 pub fn Spawn(input: TokenStream) -> TokenStream {
     struct SpawnInput {
@@ -127,10 +160,10 @@ pub fn Spawn(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         {
-            let tcNew = tokitestThreadController.nest(#label).await;
+            let tcNew = tokitest_thread_controller.nest(#label).await;
             tokio::spawn(async move {
                 tcNew.label("INIT").await;
-                let tokitestThreadController = tcNew.clone();
+                let tokitest_thread_controller = tcNew.clone();
                 let result = { #body }.await;
                 tcNew.label("END").await;
                 result
@@ -138,5 +171,49 @@ pub fn Spawn(input: TokenStream) -> TokenStream {
         }
     };
 
+    TokenStream::from(expanded)
+}
+
+/*
+from
+    NetworkCall!(client.get("/api/data").send().await);
+
+to
+    async {
+        if tokitest_thread_controller.networkDead() {
+            return Err("Network is dead");
+        }
+        client.get("/api/data").send().await
+    }
+*/
+#[proc_macro]
+pub fn NetworkCall(input: TokenStream) -> TokenStream {
+    let call = syn::parse_macro_input!(input as syn::Expr);
+
+    let expanded = quote! {
+        async {
+            if tokitest_thread_controller.networkDead() {
+                return Err("Network is dead");
+            }
+            #call
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
+/*
+from 
+CreateMainController!()
+to
+
+
+
+*/
+#[proc_macro]
+pub fn CreateMainController(_input: TokenStream) -> TokenStream {
+    let expanded = quote! {
+        let tokitest_thread_controller = MainController::new();
+    };
     TokenStream::from(expanded)
 }
