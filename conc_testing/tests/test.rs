@@ -6,7 +6,7 @@ use tokio::time::{sleep, Duration};
 
 use controller::{MainController, Nestable, ThreadController};
 
-use testable::{testable, Label, Call, Spawn};
+use testable::{testable, Call, CreateMainController, Label, Spawn};
 
 
 #[testable]
@@ -155,3 +155,19 @@ async fn test_two_threads_join() {
     }
     assert_eq!(exp.len(), data.read().await.len());
 }
+
+
+// #[tokio::test]
+// async fn test_no_labels() {
+//     // This test makes sure that when we don't pass tokitest, the Label!() macros are ignored.
+//     let data: Arc<RwLock<Vec<i32>>> = Arc::new(RwLock::new(vec![]));
+//     CreateMainController!();
+
+//     let dc = data.clone();
+//     let h = Spawn!("thread1", async {
+//         Call!(print_num_shared_write(0, dc)).await;
+//     });
+
+//     let _ = h.await;
+//     assert_eq!(vec![1,2,3,4,5,6,7,8], *data.read().await);
+// }

@@ -17,3 +17,6 @@ testable = { path = "testable" }
 
 [dev-dependencies]
 testable = { path = "testable" }
+
+[features]
+tokitest = []

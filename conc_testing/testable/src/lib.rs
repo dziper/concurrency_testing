@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Expr, ExprCall, FnArg, ItemFn, LitStr, Token};
+use syn::{parse_macro_input, Error, Expr, ExprCall, FnArg, Ident, ItemFn, LitStr, Token, ExprAsync};
 use syn::parse::{Parse, ParseStream};
 use syn::{punctuated::Punctuated};
 
@@ -177,7 +177,7 @@ to
 #[proc_macro]
 pub fn Spawn(input: TokenStream) -> TokenStream {
     struct SpawnInput {
-        label: LitStr,
+        label: Expr,
         _comma: Token![,],
         body: Expr,
     }
@@ -210,9 +210,58 @@ pub fn Spawn(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+#[proc_macro]
+pub fn SpawnJoinSet(item: TokenStream) -> TokenStream {
+    struct SpawnJoinSetInput {
+        label_expr: Expr,
+        _comma1: Token![,],
+        joinset_var: Ident,
+        _comma2: Token![,],
+        body: Expr,
+    }
+
+    impl Parse for SpawnJoinSetInput {
+        fn parse(input: ParseStream) -> Result<Self, Error> {
+            Ok(SpawnJoinSetInput {
+                label_expr: input.parse()?,
+                _comma1: input.parse()?,
+                joinset_var: input.parse()?,
+                _comma2: input.parse()?,
+                body: input.parse()?,
+            })
+        }
+    }
+
+    let SpawnJoinSetInput {
+        label_expr,
+        _comma1,
+        joinset_var,
+        _comma2,
+        body,
+    } = parse_macro_input!(item as SpawnJoinSetInput);
+
+    let expanded = quote! {
+        // No-op to help rust-analyzer parse this macro better
+        let _ = ();
+
+        {
+            let tcNew = tokitest_thread_controller.nest(#label_expr).await;
+            #joinset_var.spawn(async move {
+                tcNew.label("INIT").await;
+                let tokitest_thread_controller = tcNew.clone();
+                let result = { #body }.await;
+                tcNew.label("END").await;
+                result
+            })
+        }
+    };
+    TokenStream::from(expanded)
+}
+
+
 /*
 from
-    NetworkCall!(client.get("/api/data").send().await);
+    NetworkCall!(client.get("/api/data").send());
 
 to
     async {
@@ -224,14 +273,58 @@ to
 */
 #[proc_macro]
 pub fn NetworkCall(input: TokenStream) -> TokenStream {
-    let call = syn::parse_macro_input!(input as syn::Expr);
+    let expr = syn::parse_macro_input!(input as Expr);
+
+    match expr {
+        Expr::Call(ExprCall { func, args, .. }) => {
+            let expanded = quote! {
+                if tokitest_thread_controller.is_isolated().await {
+                    async {
+                        Err(String::from("Network is dead"));
+                    };
+                } else {
+                    #func(#args);
+                }
+            };
+            TokenStream::from(expanded)
+        }
+        Expr::MethodCall(mut method_call) => {
+            let method = &method_call.method;
+            let receiver = &method_call.receiver;
+            let args = &method_call.args;
+
+            let expanded = quote! {
+                if tokitest_thread_controller.is_isolated().await {
+                    async {
+                        Err("Network is dead");
+                    };
+                }
+                #receiver.#method(#args);
+            };
+            TokenStream::from(expanded)
+        }
+        other => syn::Error::new_spanned(other, "Call! macro supports only function or method calls")
+            .to_compile_error()
+            .into(),
+    }
+}
+
+/**
+from
+    Isolate!("thrad-id")
+
+to
+    async {
+        tokitest_main_controller.isolate("thread_id").await
+    }
+*/
+#[proc_macro]
+pub fn Isolate(input: TokenStream) -> TokenStream {
+    let thread_id = syn::parse_macro_input!(input as syn::LitStr);
 
     let expanded = quote! {
-        async {
-            if tokitest_thread_controller.networkDead() {
-                return Err("Network is dead");
-            }
-            #call
+        {
+            tokitest_main_controller.isolate(thread_id)
         }
     };
 
@@ -242,8 +335,6 @@ pub fn NetworkCall(input: TokenStream) -> TokenStream {
 from 
 CreateMainController!()
 to
-
-
 
 */
 #[proc_macro]
@@ -281,37 +372,37 @@ pub fn RunTo(input: TokenStream) -> TokenStream {
     }
 
     let mut args_iter = args.into_iter();
-    let label_expr = args_iter.next().unwrap();
-    let second_expr = args_iter.next().unwrap();
+    let thread_id = args_iter.next().unwrap();
+    let label = args_iter.next().unwrap();
 
     // First argument must be a LitStr
-    let label_lit = match &label_expr {
+    let label_lit = match &thread_id {
         syn::Expr::Lit(syn::ExprLit {
             lit: syn::Lit::Str(lit_str),
             ..
         }) => lit_str,
         _ => {
-            return syn::Error::new_spanned(label_expr, "First argument to RunTo! must be a string literal")
+            return syn::Error::new_spanned(thread_id, "First argument to RunTo! must be a string literal")
                 .to_compile_error()
                 .into();
         }
     };
 
     // Now check whether second argument is also a LitStr
-    let expanded = match &second_expr {
+    let expanded = match &label {
         syn::Expr::Lit(syn::ExprLit {
             lit: syn::Lit::Str(_),
             ..
         }) => {
             // Both are string literals
             quote! {
-                tokitest_main_controller.run_to(#label_lit, #second_expr)
+                tokitest_main_controller.run_to(#label_lit, #label)
             }
         }
         _ => {
             // Second argument is a general expression, assume is a LabelTrait
             quote! {
-                tokitest_main_controller.run_to_label(#label_lit, #second_expr)
+                tokitest_main_controller.run_to_label(#label_lit, #label)
             }
         }
     };

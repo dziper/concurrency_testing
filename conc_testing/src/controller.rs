@@ -11,6 +11,7 @@ pub trait Nestable {
 struct MainControllerData {
     thread_controllers: HashMap<String, Arc<ThreadController>>,
     waiting_for: HashMap<String, Sender<Arc<ThreadController>>>,
+    isolated_ids: Vec<String>,
 }
 
 impl MainControllerData {
@@ -18,6 +19,7 @@ impl MainControllerData {
         MainControllerData {
             thread_controllers: HashMap::new(),
             waiting_for: HashMap::new(),
+            isolated_ids: Vec::new()
         }
     }
 
@@ -30,6 +32,14 @@ impl MainControllerData {
             },
             None => {}
         }
+    }
+
+    pub fn isolate(&mut self, id: &str) {
+        self.isolated_ids.push(id.to_string());
+    }
+
+    pub fn is_isolated(&self, id: &str) -> bool {
+        self.isolated_ids.iter().any(|prefix| id.starts_with(prefix))
     }
 }
 
@@ -44,7 +54,7 @@ impl MainController {
     }
 
     pub async fn run_to_end(&self, id: &str) {
-        self.run_to(id, "END");
+        self.run_to(id, "END").await;
     }
 
     pub async fn run_to(&self, id: &str, label: &str) {
@@ -74,6 +84,10 @@ impl MainController {
             }
         };
     }
+
+    pub async fn isolate(&self, id: &str) {
+        self.data.write().await.is_isolated(id);
+    }
 }
 
 impl Nestable for MainController {
@@ -94,7 +108,7 @@ pub struct ThreadController {
 
 impl Nestable for ThreadController {
     async fn nest(&self, id: &str) -> Arc<ThreadController> {
-        let new_id = self.id.clone() + id;
+        let new_id = self.id.clone() + id; // TODO: Use a seperator?
         let tc = Arc::new(ThreadController::new(&new_id, self.main_controller_data.clone()));
         self.main_controller_data.write().await.add_thread(&new_id, tc.clone()).await;
         return tc;
@@ -114,7 +128,7 @@ impl ThreadController {
             id: id.to_string(),
             proceed_chan: (proceed.0, RwLock::new(proceed.1)),
             label_chan: (label.0, RwLock::new(label.1)),
-            main_controller_data: mc_data
+            main_controller_data: mc_data,
         }
     }
 
@@ -149,5 +163,9 @@ impl ThreadController {
         println!("{} write lock for red label {}", self.id, label);
         let _ = self.label_chan.0.send(label.to_string()).await;
         println!("{} exiting {}", self.id, label);
+    }
+
+    pub async fn is_isolated(&self) -> bool {
+        return self.main_controller_data.read().await.is_isolated(&self.id);
     }
 }
