@@ -86,7 +86,7 @@ impl MainController {
     }
 
     pub async fn isolate(&self, id: &str) {
-        self.data.write().await.is_isolated(id);
+        self.data.write().await.isolate(id);
     }
 }
 

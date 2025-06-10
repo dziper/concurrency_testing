@@ -304,6 +304,7 @@ pub fn NetworkCall(input: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
+
 /**
 from
     Isolate!("thrad-id")
@@ -318,9 +319,7 @@ pub fn Isolate(input: TokenStream) -> TokenStream {
     let thread_id = syn::parse_macro_input!(input as syn::LitStr);
 
     let expanded = quote! {
-        {
-            tokitest_main_controller.isolate(thread_id)
-        }
+        tokitest_main_controller.isolate(#thread_id)
     };
 
     TokenStream::from(expanded)
