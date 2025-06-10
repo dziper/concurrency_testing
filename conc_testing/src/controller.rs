@@ -116,7 +116,7 @@ impl Nestable for ThreadController {
 }
 
 impl ThreadController {
-    
+
     // creates a named controller associated with a thread
     fn new(id: &str, mc_data: Arc<RwLock<MainControllerData>>) -> ThreadController {
         //create a channel to send "proceed signal" -- this resumes the thread operation
@@ -124,7 +124,7 @@ impl ThreadController {
         //consume the next label encountered in the thread
         let label = channel::<String>(1);
 
-        ThreadController { 
+        ThreadController {
             id: id.to_string(),
             proceed_chan: (proceed.0, RwLock::new(proceed.1)),
             label_chan: (label.0, RwLock::new(label.1)),
