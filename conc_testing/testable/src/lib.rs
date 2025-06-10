@@ -261,52 +261,48 @@ pub fn SpawnJoinSet(item: TokenStream) -> TokenStream {
 
 /*
 from
-    NetworkCall!(client.get("/api/data").send());
+    NetworkCall!(client.get("/api/data").send(), callback_on_error());
 
 to
     async {
         if tokitest_thread_controller.networkDead() {
-            return Err("Network is dead");
+            return callback_on_error();
+        } else {
+            return client.get("/api/data").send();
         }
-        client.get("/api/data").send().await
     }
 */
 #[proc_macro]
 pub fn NetworkCall(input: TokenStream) -> TokenStream {
-    let expr = syn::parse_macro_input!(input as Expr);
-
-    match expr {
-        Expr::Call(ExprCall { func, args, .. }) => {
-            let expanded = quote! {
-                if tokitest_thread_controller.is_isolated().await {
-                    async {
-                        Err(String::from("Network is dead"));
-                    };
-                } else {
-                    #func(#args);
-                }
-            };
-            TokenStream::from(expanded)
-        }
-        Expr::MethodCall(mut method_call) => {
-            let method = &method_call.method;
-            let receiver = &method_call.receiver;
-            let args = &method_call.args;
-
-            let expanded = quote! {
-                if tokitest_thread_controller.is_isolated().await {
-                    async {
-                        Err("Network is dead");
-                    };
-                }
-                #receiver.#method(#args);
-            };
-            TokenStream::from(expanded)
-        }
-        other => syn::Error::new_spanned(other, "Call! macro supports only function or method calls")
-            .to_compile_error()
-            .into(),
+    struct NetworkCallInput {
+        network_call: Expr,
+        _comma: Token![,],
+        error_callback: Expr,
     }
+
+    impl Parse for NetworkCallInput {
+        fn parse(input: ParseStream) -> syn::Result<Self> {
+            Ok(NetworkCallInput {
+                network_call: input.parse()?,
+                _comma: input.parse()?,
+                error_callback: input.parse()?,
+            })
+        }
+    }
+
+    let NetworkCallInput { network_call, _comma, error_callback } = parse_macro_input!(input as NetworkCallInput);
+
+    let expanded = quote! {
+        {
+            if tokitest_thread_controller.is_isolated().await {
+                Box::pin(#error_callback) as std::pin::Pin<Box<dyn std::future::Future<Output = _> + Send>>
+            } else {
+                Box::pin(#network_call) as std::pin::Pin<Box<dyn std::future::Future<Output = _> + Send>>
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
 }
 
 /**
@@ -323,9 +319,7 @@ pub fn Isolate(input: TokenStream) -> TokenStream {
     let thread_id = syn::parse_macro_input!(input as syn::LitStr);
 
     let expanded = quote! {
-        {
-            tokitest_main_controller.isolate(thread_id)
-        }
+        tokitest_main_controller.isolate(#thread_id)
     };
 
     TokenStream::from(expanded)
