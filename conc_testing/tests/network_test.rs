@@ -6,6 +6,7 @@ use testable::Isolate;
 use testable::RunTo;
 
 use std::sync::Arc;
+use futures;
 use tokio::{sync::RwLock};
 use tokio::time::{sleep, Duration};
 use testable::{testable, Label, Spawn, Call, NetworkCall};
