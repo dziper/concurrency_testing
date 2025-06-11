@@ -45,10 +45,10 @@ impl MainControllerData {
     }
 }
 
-/// Use [`testable::CreateMainController`] in the main test thread, this object manages nesting other threads and running to labels
+/// Use [`testable::start_tokitest`] in the main test thread, this object manages nesting other threads and running to labels
 /// 
-/// Creating the MainController should be done with the [`testable::CreateMainController`] macro
-/// Manually calling [`MainController::run_to`], [`MainController::isolate`] and [`MainController::nest`] should be avoided, and instead [`testable::RunTo`], [`testable::Isolate`], and [`testable::Spawn`] should be used.
+/// Creating the MainController should be done with the [`testable::start_tokitest`] macro
+/// Manually calling [`MainController::run_to`], [`MainController::isolate`] and [`MainController::nest`] should be avoided, and instead [`testable::run_to`], [`testable::Isolate`], and [`testable::Spawn`] should be used.
 #[derive(Debug)]
 pub struct MainController {
     data: Arc<RwLock<MainControllerData>>
@@ -56,22 +56,22 @@ pub struct MainController {
 
 #[allow(dead_code)]
 impl MainController {
-    /// It is recommended to create MainController with [`testable::CreateMainController`]
+    /// It is recommended to create MainController with [`testable::start_tokitest`]
     pub fn new() -> MainController {
         MainController { data: Arc::new(RwLock::new(MainControllerData::new())) }
     }
 
-    /// It is recommended to use [`testable::RunTo`] instead of this function
+    /// It is recommended to use [`testable::run_to`] instead of this function
     pub async fn run_to_end(&self, id: &str) {
         self.run_to(id, "END").await;
     }
 
-    /// It is recommended to use [`testable::RunTo`] instead of this function
+    /// It is recommended to use [`testable::run_to`] instead of this function
     pub async fn run_to(&self, id: &str, label: &str) {
         self.run_to_label(id, StringLabel::new(label)).await;
     }
 
-    /// It is recommended to use [`testable::RunTo`] instead of this function
+    /// It is recommended to use [`testable::run_to`] instead of this function
     pub async fn run_to_label(&self, id: &str, label: impl LabelTrait) {
         let thread_controller = self.get_thread_controller(id).await;
         thread_controller.run_to_label(label).await;

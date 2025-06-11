@@ -1,20 +1,20 @@
 use regex::Regex;
 
-/// When specifying a Label to RunTo, the user can pass an object with the LabelTrait,
+/// When specifying a Label to run_to, the user can pass an object with the LabelTrait,
 /// which can be used to specify a condition for when a label should be hit.
 /// Labels can be composed for flexible condition specification
 /// 
 /// ```rust,ignore
-/// RunTo!("thread0", StringLabel::new("Label 1")).await;
+/// run_to("thread0", StringLabel::new("Label 1")).await;
 /// 
 /// // Run to any label that starts with foo in thread0
-/// RunTo!("thread0", RegexLabel::new(Regex::new(r"foo*"))).await;
+/// run_to!("thread0", RegexLabel::new(Regex::new(r"foo*"))).await;
 /// 
 /// // Run to the fifth hit of Label 1 in thread0
-/// RunTo!("thread0", RepeatedLabel::new(StringLabel::new("Label 1"), 5)).await;
+/// run_to!("thread0", RepeatedLabel::new(StringLabel::new("Label 1"), 5)).await;
 /// 
 /// // Run to the fifth hit of either Label 1 or Label 2 in thread0
-/// RunTo!("thread0", RepeatedLabel::new(
+/// run_to!("thread0", RepeatedLabel::new(
 ///     OrLabel::new(vec![
 ///         StringLabel::new("Label 1"),
 ///         StringLabel::new("Label 2"),

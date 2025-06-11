@@ -1,30 +1,30 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Error, Expr, ExprCall, FnArg, Ident, ItemFn, LitStr, Token, ExprAsync};
+use syn::{parse_macro_input, Error, Expr, ExprCall, FnArg, Ident, ItemFn, Token};
 use syn::parse::{Parse, ParseStream};
 use syn::{punctuated::Punctuated};
 
 
-/// Mark a Label in a [`testable!`] function, that the `MainController` can [`RunTo!`].
+/// Mark a Label in a [`testable!`] function, that the `MainController` can [`run_to!`].
 /// 
 /// ## Usage
 /// ```rust,ignore
 /// // code
-/// Label!("label 1");
+/// label!("label 1");
 /// // code
-/// Label!("label 2");
+/// label!("label 2");
 /// // code
 /// ```
 /// 
 /// ## Expansion
 /// ```rust,ignore
-/// Label!("label 1");
+/// label!("label 1");
 /// // Expands to
 /// tokitest_thread_controller.label("label 1").await;
 /// tokitest_thread_controller.label("label 1 block").await;
 /// ```
 #[proc_macro]
-pub fn Label(input: TokenStream) -> TokenStream {
+pub fn label(input: TokenStream) -> TokenStream {
     let label = syn::parse_macro_input!(input as syn::LitStr);
     let label_str = label.value();
     let block_label = format!("{} block", label_str);
@@ -36,15 +36,15 @@ pub fn Label(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-/// Mark a function as `testable` to allow it to contain [`Label!`], [`Call!`], [`NetworkCall!`]
+/// Mark a function as `testable` to allow it to contain [`label!`], [`call!`], [`Networkcall!`]
 /// 
 /// ## Usage
 /// ```rust,ignore
 /// #[testable]
 /// fn my_function (arg: i32, ...){
-///     Label!("label 1");
-///     Call!(my_other_testable_function_with_labels())
-///     Label!("label 2");
+///     label!("label 1");
+///     call!(my_other_testable_function_with_labels())
+///     label!("label 2");
 ///     ...
 /// }
 /// ```
@@ -88,20 +88,20 @@ pub fn testable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// ```rust,ignore
 /// struct MyStruct {}
 /// 
-/// #[Testable]
+/// #[testable_struct]
 /// impl MyStruct {
 ///     fn my_func() {
-///         Label!("label 1");
+///         label!("label 1");
 ///         // ...
 ///     }
 ///     fn my_func2() {
-///         Label!("label 2");
+///         label!("label 2");
 ///         // ...
 ///     }
 /// }
 /// ```
 #[proc_macro_attribute]
-pub fn Testable(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn testable_struct(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut impl_block = syn::parse_macro_input!(item as syn::ItemImpl);
 
     for impl_item in impl_block.items.iter_mut() {
@@ -132,7 +132,7 @@ pub fn Testable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 from
     #[testable]
     fn <fn_name1> (args1){
-        Call!(fn_name2(args2))
+        call!(fn_name2(args2))
     }
 
     #[testable]
@@ -148,21 +148,21 @@ to
     }
 */
 
-/// All [`testable`] functions must be called with this macro for [`Label!`] to work.
+/// All [`testable`] functions must be called with this macro for [`label!`] to work.
 /// 
-/// [`Call!`] can only be used from within a [`testable`] function or a tokitest.
+/// [`call!`] can only be used from within a [`testable`] function or a tokitest.
 /// 
 /// ## Usage
 /// ```rust,ignore
 /// #[testable]
 /// fn my_function (arg: i32, ...) {
-///     Label!("label 1");
+///     label!("label 1");
 /// }
 /// 
-/// Call!(my_function(123));
+/// call!(my_function(123));
 /// ```
 #[proc_macro]
-pub fn Call(input: TokenStream) -> TokenStream {
+pub fn call(input: TokenStream) -> TokenStream {
     let expr = parse_macro_input!(input as Expr);
 
     match expr {
@@ -182,7 +182,7 @@ pub fn Call(input: TokenStream) -> TokenStream {
             };
             TokenStream::from(expanded)
         }
-        other => syn::Error::new_spanned(other, "Call! macro supports only function or method calls")
+        other => syn::Error::new_spanned(other, "call! macro supports only function or method calls")
             .to_compile_error()
             .into(),
     }
@@ -190,17 +190,17 @@ pub fn Call(input: TokenStream) -> TokenStream {
 
 
 /*
-Call!(some_func(x, y));            // Expands to: some_func(tokitest_thread_controller.clone(), x, y)
+call!(some_func(x, y));            // Expands to: some_func(tokitest_thread_controller.clone(), x, y)
 
-Call!(obj.method(a, b));           // Expands to: obj.method(tokitest_thread_controller.clone(), a, b)
+call!(obj.method(a, b));           // Expands to: obj.method(tokitest_thread_controller.clone(), a, b)
 
-Call!(obj1.obj2.func(z));          // Expands to: obj1.obj2.func(tokitest_thread_controller.clone(), z)
+call!(obj1.obj2.func(z));          // Expands to: obj1.obj2.func(tokitest_thread_controller.clone(), z)
 */
 
 
 /*
 from
-    Spawn!("child thread", async {
+    spawn!("child thread", async {
         // some async code
     });
 
@@ -209,7 +209,7 @@ to
     tokio::spawn(async move {
         tcNew.label("INIT").await;
         let tokitest_thread_controller = tcNew.clone();
-        let result = {
+        let result = { 
             // some async code
         }.await;
         tcNew.label("END").await;
@@ -217,7 +217,7 @@ to
     })
 */
 #[proc_macro]
-pub fn Spawn(input: TokenStream) -> TokenStream {
+pub fn spawn(input: TokenStream) -> TokenStream {
     struct SpawnInput {
         label: Expr,
         _comma: Token![,],
@@ -253,7 +253,7 @@ pub fn Spawn(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
-pub fn SpawnJoinSet(item: TokenStream) -> TokenStream {
+pub fn spawn_join_set(item: TokenStream) -> TokenStream {
     struct SpawnJoinSetInput {
         label_expr: Expr,
         _comma1: Token![,],
@@ -303,7 +303,7 @@ pub fn SpawnJoinSet(item: TokenStream) -> TokenStream {
 
 /*
 from
-    NetworkCall!(client.get("/api/data").send(), callback_on_error());
+    Networkcall!(client.get("/api/data").send(), callback_on_error());
 
 to
     async {
@@ -315,11 +315,7 @@ to
     }
 */
 #[proc_macro]
-pub fn NetworkCall(input: TokenStream) -> TokenStream {
-    use quote::quote;
-    use syn::{parse_macro_input, Expr, Token};
-    use syn::parse::{Parse, ParseStream};
-
+pub fn network_call(input: TokenStream) -> TokenStream {
     struct NetworkCallInput {
         network_call: Expr,
         _comma: Token![,],
@@ -341,9 +337,9 @@ pub fn NetworkCall(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         {
             if tokitest_thread_controller.is_isolated().await {
-                futures::future::Either::Right(#error_callback)
+                Box::pin(#error_callback) as std::pin::Pin<Box<dyn std::future::Future<Output = _> + Send>>
             } else {
-                futures::future::Either::Left(#network_call)
+                Box::pin(#network_call) as std::pin::Pin<Box<dyn std::future::Future<Output = _> + Send>>
             }
         }
     };
@@ -361,7 +357,7 @@ to
     }
 */
 #[proc_macro]
-pub fn Isolate(input: TokenStream) -> TokenStream {
+pub fn isolate(input: TokenStream) -> TokenStream {
     let thread_id = syn::parse_macro_input!(input as syn::LitStr);
 
     let expanded = quote! {
@@ -372,13 +368,13 @@ pub fn Isolate(input: TokenStream) -> TokenStream {
 }
 
 /*
-from
-CreateMainController!()
+from 
+start_tokitest!()
 to
 
 */
 #[proc_macro]
-pub fn CreateMainController(_input: TokenStream) -> TokenStream {
+pub fn start_tokitest(_input: TokenStream) -> TokenStream {
     let expanded = quote! {
         let tokitest_main_controller = Arc::new(controller::MainController::new());
         let tokitest_thread_controller = tokitest_main_controller.nest("").await;
@@ -401,13 +397,13 @@ impl Parse for RunToArgs {
 
 /// Thingy
 #[proc_macro]
-pub fn RunTo(input: TokenStream) -> TokenStream {
+pub fn run_to(input: TokenStream) -> TokenStream {
     let RunToArgs { args } = syn::parse_macro_input!(input as RunToArgs);
 
     // Expect exactly two arguments
     // TODO: may want to allow non string literal?
     if args.len() != 2 {
-        return syn::Error::new_spanned(args, "RunTo! requires exactly two arguments: a string literal and an expression")
+        return syn::Error::new_spanned(args, "run_to! requires exactly two arguments: a string literal and an expression")
             .to_compile_error()
             .into();
     }
@@ -423,7 +419,7 @@ pub fn RunTo(input: TokenStream) -> TokenStream {
             ..
         }) => lit_str,
         _ => {
-            return syn::Error::new_spanned(thread_id, "First argument to RunTo! must be a string literal")
+            return syn::Error::new_spanned(thread_id, "First argument to run_to! must be a string literal")
                 .to_compile_error()
                 .into();
         }

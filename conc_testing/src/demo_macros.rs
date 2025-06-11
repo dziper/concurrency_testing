@@ -14,13 +14,13 @@ that way we can figure out what we want to macroify
 #[testable]
 async fn demo(offset: i32, data: Arc<RwLock<Vec<i32>>>) {
     data.write().await.push(offset + 0);
-    Label!("label 1");
+    label!("label 1");
     data.write().await.push(offset + 1);
-    Label!("label 2");
+    label!("label 2");
     data.write().await.push(offset + 2);
 }
 
-// After macro expansion, note NO INIT,END. This is responsibility of Spawn! not #testable
+// After macro expansion, note NO INIT,END. This is responsibility of spawn! not #testable
 async fn demo(tc: &Arc<ThreadController>, offset: i32, data: Arc<RwLock<Vec<i32>>>) {
     data.write().await.push(offset + 0);
 
@@ -38,7 +38,7 @@ async fn demo(tc: &Arc<ThreadController>, offset: i32, data: Arc<RwLock<Vec<i32>
 // Sync Functions should behave like Async (I think?)
 #[testable]
 fn sync_fn() {
-    Label!("label 1");
+    label!("label 1");
 }
 // After expansion
 fn sync_fn(tc: &Arc<ThreadController>) {
@@ -50,9 +50,9 @@ fn sync_fn(tc: &Arc<ThreadController>) {
 
 #[testable]
 async fn async_fn() {
-    Label!("label 0");
-    Call!(sync_fn());
-    Label!("label 2");
+    label!("label 0");
+    call!(sync_fn());
+    label!("label 2");
 }
 
 async fn async_fn(tc: &Arc<ThreadController>) {
@@ -71,11 +71,11 @@ async fn async_fn(tc: &Arc<ThreadController>) {
 
 #[testable]
 async fn demo_spawn(offset: i32, data: &Arc<RwLock<Vec<i32>>>) {
-    Spawn!("spawned", async {
+    spawn!("spawned", async {
         // Arbitrary Code
     });
 
-    Spawn!("spawned2", async {
+    spawn!("spawned2", async {
         // Arbitrary Code
     });
 }
@@ -137,7 +137,7 @@ async fn demo_joinset(tc: &Arc<ThreadController>, offset: i32, data: Arc<RwLock<
     let mut set: JoinSet<i32> = JoinSet::new(); 
     for i in 0..5 {
         SpawnJoinset!("spawned"+str(i), set, async {
-            Label!("label 1");
+            label!("label 1");
             // Arbitrary Code
             return long_computation(i).await;
             // Note END label should come AFTER all computation!
@@ -198,7 +198,7 @@ async fn networkcall() -> Result<()> {
 }
 
 async fn caller (tokitest_thread_controller ) {
-    f1 = NetworkCall!(networkcall());
+    f1 = Networkcall!(networkcall());
 
     f2 = networkcall();
 

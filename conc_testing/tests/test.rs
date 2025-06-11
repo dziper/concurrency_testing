@@ -6,7 +6,7 @@ use tokio::time::{sleep, Duration};
 
 use controller::{MainController, Nestable, ThreadController};
 
-use testable::{testable, Call, CreateMainController, Label, Spawn};
+use testable::{testable, call, label, spawn};
 
 
 #[testable]
@@ -15,14 +15,14 @@ async fn print_num_shared_write(offset: i32, data: Arc<RwLock<Vec<i32>>>) {
     sleep(Duration::from_millis(10)).await;
     data.write().await.push(offset + 2);
 
-    Label!("label 1");
+    label!("label 1");
     data.write().await.push(offset + 3);
     sleep(Duration::from_millis(10)).await;
     data.write().await.push(offset + 4);
     sleep(Duration::from_millis(10)).await;
     data.write().await.push(offset + 5);
 
-    Label!("label 2");
+    label!("label 2");
     data.write().await.push(offset + 6);
     sleep(Duration::from_millis(10)).await;
     data.write().await.push(offset + 7);
@@ -50,8 +50,8 @@ async fn test_one_thread() {
     println!("Calling nest");
     
     let dc = data.clone();
-    Spawn!("thread1", async {
-        Call!(print_num_shared_write(0, dc)).await;
+    spawn!("thread1", async {
+        call!(print_num_shared_write(0, dc)).await;
     });
 
     // let tokitest_thread_controller = mc.nest("thread1").await;
@@ -86,12 +86,12 @@ async fn test_two_threads() {
     let dc0 = data.clone();
     let dc1 = data.clone();
 
-    Spawn!("thread0", async {
-        Call!(print_num_shared_write(0, dc0)).await;
+    spawn!("thread0", async {
+        call!(print_num_shared_write(0, dc0)).await;
     });
 
-    Spawn!("thread1", async {
-        Call!(print_num_shared_write(10, dc1)).await;
+    spawn!("thread1", async {
+        call!(print_num_shared_write(10, dc1)).await;
     });
 
     // assert!(false);
@@ -123,12 +123,12 @@ async fn test_two_threads_join() {
     let dc0 = data.clone();
     let dc1 = data.clone();
 
-    Spawn!("thread0", async {
-        Call!(print_num_shared_write(0, dc0)).await;
+    spawn!("thread0", async {
+        call!(print_num_shared_write(0, dc0)).await;
     });
 
-    Spawn!("thread1", async {
-        Call!(print_num_shared_write(10, dc1)).await;
+    spawn!("thread1", async {
+        call!(print_num_shared_write(10, dc1)).await;
     });
 
     assert_eq!(Vec::<i32>::new(), *data.read().await);
@@ -159,13 +159,13 @@ async fn test_two_threads_join() {
 
 // #[tokio::test]
 // async fn test_no_labels() {
-//     // This test makes sure that when we don't pass tokitest, the Label!() macros are ignored.
+//     // This test makes sure that when we don't pass tokitest, the label!() macros are ignored.
 //     let data: Arc<RwLock<Vec<i32>>> = Arc::new(RwLock::new(vec![]));
-//     CreateMainController!();
+//     start_tokitest!();
 
 //     let dc = data.clone();
-//     let h = Spawn!("thread1", async {
-//         Call!(print_num_shared_write(0, dc)).await;
+//     let h = spawn!("thread1", async {
+//         call!(print_num_shared_write(0, dc)).await;
 //     });
 
 //     let _ = h.await;

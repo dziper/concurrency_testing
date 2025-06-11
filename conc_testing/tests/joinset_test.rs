@@ -6,30 +6,30 @@ use tokio::{join};
 
 use controller::{Nestable};
 
-use testable::{CreateMainController, Label, RunTo, SpawnJoinSet};
+use testable::{start_tokitest, label, run_to, spawn_join_set};
 
 
 
 #[tokio::test]
 async fn test_one_thread() {
-    CreateMainController!();
+    start_tokitest!();
 
     let mut set: JoinSet<i32> = JoinSet::new(); 
     for i in 0..5 {
         // let dc = data.clone();
-        SpawnJoinSet!(&format!("spawned{}", i), set, async {
+        spawn_join_set!(&format!("spawned{}", i), set, async {
             // dc.write().await.push(i);
-            Label!("label 1");
+            label!("label 1");
             return i;
         });
     }
 
     join! {
-        RunTo!("spawned0", "label 1"),
-        RunTo!("spawned1", "label 1"),
-        RunTo!("spawned2", "label 1"),
-        RunTo!("spawned3", "END"),
-        RunTo!("spawned4", "END"),
+        run_to!("spawned0", "label 1"),
+        run_to!("spawned1", "label 1"),
+        run_to!("spawned2", "label 1"),
+        run_to!("spawned3", "END"),
+        run_to!("spawned4", "END"),
     };
 
     if let Some(Ok(join_res)) = set.join_next().await {
@@ -40,9 +40,9 @@ async fn test_one_thread() {
     }
 
     join!(
-        RunTo!("spawned0", "END"),
-        RunTo!("spawned1", "END"),
-        RunTo!("spawned2", "END"),
+        run_to!("spawned0", "END"),
+        run_to!("spawned1", "END"),
+        run_to!("spawned2", "END"),
     );
 
     while let Some(Ok(join_res)) = set.join_next().await {

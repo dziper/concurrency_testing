@@ -1,34 +1,32 @@
 use conc_testing::controller;
 
-use controller::{MainController, Nestable, ThreadController};
-use testable::CreateMainController;
-use testable::Isolate;
-use testable::RunTo;
+use controller::{Nestable, ThreadController};
+use testable::start_tokitest;
+use testable::run_to;
 
 use std::sync::Arc;
-use futures;
 use tokio::{sync::RwLock};
 use tokio::time::{sleep, Duration};
-use testable::{testable, Label, Spawn, Call, NetworkCall};
+use testable::{testable, label, spawn, call, network_call, isolate};
 
 #[testable]
 async fn make_network_request(url: &str, results: Arc<RwLock<Vec<String>>>) {
-    Label!("before network call");
+    label!("before network call");
 
-    let response = NetworkCall!(mock_http_get(url), mock_http_error_handler()).await;
+    let response = network_call!(mock_http_get(url), mock_http_error_handler()).await;
 
     match response {
         Ok(data) => {
             results.write().await.push(format!("success: {}", data));
-            Label!("network success");
+            label!("network success");
         }
         Err(err) => {
             results.write().await.push(format!("error: {}", err));
-            Label!("network error");
+            label!("network error");
         }
     }
 
-    Label!("after network call");
+    label!("after network call");
 }
 
 // Mock HTTP function that simulates a network request
@@ -45,43 +43,43 @@ async fn mock_http_error_handler() -> Result<String, String> {
 async fn test_network_call_normal() {
     let results = Arc::new(RwLock::new(Vec::<String>::new()));
 
-    CreateMainController!();
+    start_tokitest!();
 
     let results_clone = results.clone();
-    Spawn!("thread1", async {
-        Call!(make_network_request("http://api.example.com", results_clone)).await;
+    spawn!("thread1", async {
+        call!(make_network_request("http://api.example.com", results_clone)).await;
     });
 
     // Thread should execute normally when not isolated
-    RunTo!("thread1", "network success").await;
+    run_to!("thread1", "network success").await;
 
     let data = results.read().await;
     assert_eq!(data.len(), 1);
     assert!(data[0].contains("success"));
     assert!(data[0].contains("data from http://api.example.com"));
 
-    RunTo!("thread1", "END").await;
+    run_to!("thread1", "END").await;
 }
 
 #[tokio::test]
 async fn test_network_call_error() {
     let results = Arc::new(RwLock::new(Vec::<String>::new()));
 
-    CreateMainController!();
+    start_tokitest!();
 
     let results_clone = results.clone();
-    Spawn!("thread1", async {
-        Call!(make_network_request("http://api.example.com", results_clone)).await;
+    spawn!("thread1", async {
+        call!(make_network_request("http://api.example.com", results_clone)).await;
     });
 
     // Thread should execute normally when not isolated
-    Isolate!("thread1").await;
-    RunTo!("thread1", "network error").await;
+    isolate!("thread1").await;
+    run_to!("thread1", "network error").await;
 
     let data = results.read().await;
     assert_eq!(data.len(), 1);
     assert!(data[0].contains("error"));
     assert!(data[0].contains("Network is dead"));
 
-    RunTo!("thread1", "END").await;
+    run_to!("thread1", "END").await;
 }
