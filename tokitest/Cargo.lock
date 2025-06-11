@@ -366,15 +366,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "testable"
-version = "0.1.0"
-dependencies = [
- "futures",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "tokio"
 version = "1.45.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -407,10 +398,20 @@ dependencies = [
 name = "tokitest"
 version = "0.1.0"
 dependencies = [
+ "futures",
  "log",
  "regex",
- "testable",
  "tokio",
+ "tokitest-macro",
+]
+
+[[package]]
+name = "tokitest-macro"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "quote",
+ "syn",
 ]
 
 [[package]]

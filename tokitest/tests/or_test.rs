@@ -1,15 +1,8 @@
-use conc_testing::controller;
-use conc_testing::label_spec;
-
-use controller::{Nestable, ThreadController};
-use label_spec::{RepeatedLabel, StringLabel, OrLabel};
-use testable::start_tokitest;
-use testable::run_to;
-
 use std::sync::Arc;
 use tokio::{sync::RwLock};
 use tokio::time::{sleep, Duration};
-use testable::{testable, label, spawn, call};
+use tokitest::prelude::*;
+use tokitest::{testable, label, spawn, call, start_tokitest, run_to, OrLabel, StringLabel, RepeatedLabel};
 
 #[testable]
 async fn process_with_labels(data: Arc<RwLock<Vec<String>>>) {
@@ -43,23 +36,23 @@ async fn test_or_label() {
         StringLabel::new("even_number"),
         StringLabel::new("odd_number"),
     ]);
-    
+
     run_to!("thread1", RepeatedLabel::new(or_label, 5)).await;
-    
+
     // Should have processed 5 items (indices 0-4)
     assert_eq!(
-        vec!["even_0", "odd_1", "even_2", "odd_3", "even_4"], 
+        vec!["even_0", "odd_1", "even_2", "odd_3", "even_4"],
         *data.read().await
     );
 
     run_to!("thread1", "END").await;
-    
+
     // Should have all 10 items now
     assert_eq!(
         vec![
             "even_0", "odd_1", "even_2", "odd_3", "even_4",
             "odd_5", "even_6", "odd_7", "even_8", "odd_9"
-        ], 
+        ],
         *data.read().await
     );
 }

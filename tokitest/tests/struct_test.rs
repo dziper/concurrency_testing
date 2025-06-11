@@ -1,14 +1,8 @@
-use conc_testing::{controller};
-
 use std::sync::Arc;
 use tokio::{sync::RwLock};
 use tokio::time::{sleep, Duration};
-
-use controller::{Nestable, ThreadController};
-
-use testable::{testable_struct, label, spawn, call, run_to, start_tokitest};
-
-
+use tokitest::prelude::*;
+use tokitest::{testable_struct, label, spawn, call, run_to, start_tokitest};
 
 pub struct Worker{
     data: Arc<RwLock<Vec<i32>>>,
@@ -22,7 +16,6 @@ impl Worker {
             data: data,
         }
     }
-    
 
     pub async fn print_num_shared_write_1(&self, offset: i32) {
         self.data.write().await.push(offset + 1);
@@ -73,9 +66,6 @@ async fn test_two_threads_struct() {
 
     let obj = Arc::new(call!(Worker::new(data.clone())));
 
-    // let dc0 = data.clone();
-    // let dc1 = data.clone();
-
     let obj1 = obj.clone();
     spawn!("thread0", async {
         call!(obj1.print_num_shared_write_1(0)).await;
@@ -89,7 +79,7 @@ async fn test_two_threads_struct() {
     // assert!(false);
     assert_eq!(Vec::<i32>::new(), *data.read().await);
 
-    
+
     run_to!("thread0", "label 1").await;
     assert_eq!(vec![1,2], *data.read().await);
 

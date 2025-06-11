@@ -4,7 +4,6 @@ use syn::{parse_macro_input, Error, Expr, ExprCall, FnArg, Ident, ItemFn, Token}
 use syn::parse::{Parse, ParseStream};
 use syn::{punctuated::Punctuated};
 
-
 /// Mark a Label in a [`testable!`] function, that the `MainController` can [`run_to!`].
 /// 
 /// ## Usage
@@ -56,7 +55,7 @@ pub fn label(input: TokenStream) -> TokenStream {
 ///     ...
 /// }
 /// // Expands to
-/// fn my_function (tokitest_thread_controller &std::sync::Arc<ThreadController>, arg: i32, ...) {
+/// fn my_function (tokitest_thread_controller &std::sync::Arc<::tokitest::controller::ThreadController>, arg: i32, ...) {
 ///     ...
 /// }
 /// ```
@@ -64,9 +63,9 @@ pub fn label(input: TokenStream) -> TokenStream {
 pub fn testable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut input_fn = parse_macro_input!(item as ItemFn);
 
-    // Create the first argument: controller: &Arc<ThreadController>
+    // Create the first argument: controller: &Arc<::tokitest::controller::ThreadController>
     let controller_arg: FnArg = syn::parse_quote! {
-        tokitest_thread_controller: std::sync::Arc<ThreadController>
+        tokitest_thread_controller: std::sync::Arc<::tokitest::controller::ThreadController>
     };
 
     let insert_pos = match input_fn.sig.inputs.first() {
@@ -108,7 +107,7 @@ pub fn testable_struct(_attr: TokenStream, item: TokenStream) -> TokenStream {
         if let syn::ImplItem::Fn(method) = impl_item {
             // Build the controller argument
             let controller_arg: syn::FnArg = syn::parse_quote! {
-                tokitest_thread_controller: std::sync::Arc<ThreadController>
+                tokitest_thread_controller: std::sync::Arc<::tokitest::controller::ThreadController>
             };
 
             // Where to insert: after `self` if present
@@ -139,11 +138,11 @@ from
     fn <fn_name2> (args){
     }
 to
-    fn <fn_name1> (tc &std::sync::Arc<ThreadController>, args1) {
+    fn <fn_name1> (tc &std::sync::Arc<::tokitest::controller::ThreadController>, args1) {
         fn_name2(tc, args2)
     }
 
-    fn <fn_name2> (tc &std::sync::Arc<ThreadController>, args2) {
+    fn <fn_name2> (tc &std::sync::Arc<::tokitest::controller::ThreadController>, args2) {
 
     }
 */
@@ -378,7 +377,7 @@ to
 #[proc_macro]
 pub fn start_tokitest(_input: TokenStream) -> TokenStream {
     let expanded = quote! {
-        let tokitest_main_controller = Arc::new(controller::MainController::new());
+        let tokitest_main_controller = Arc::new(::tokitest::controller::MainController::new());
         let tokitest_thread_controller = tokitest_main_controller.nest("").await;
     };
     TokenStream::from(expanded)

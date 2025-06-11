@@ -8,6 +8,12 @@ pub trait Nestable {
     fn nest(&self, id: &str) -> impl std::future::Future<Output = Arc<ThreadController>> + Send;
 }
 
+impl<T: Nestable> Nestable for Arc<T> {
+    fn nest(&self, id: &str) -> impl std::future::Future<Output = Arc<ThreadController>> + Send {
+        self.as_ref().nest(id)
+    }
+}
+
 #[derive(Debug)]
 struct MainControllerData {
     thread_controllers: HashMap<String, Arc<ThreadController>>,

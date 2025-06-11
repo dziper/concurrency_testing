@@ -1,13 +1,8 @@
-use conc_testing::controller;
-
-use controller::{Nestable, ThreadController};
-use testable::start_tokitest;
-use testable::run_to;
-
 use std::sync::Arc;
 use tokio::{sync::RwLock};
 use tokio::time::{sleep, Duration};
-use testable::{testable, label, spawn, call, network_call, isolate};
+use tokitest::prelude::*;
+use tokitest::{start_tokitest, run_to, testable, label, spawn, call, network_call, isolate};
 
 #[testable]
 async fn make_network_request(url: &str, results: Arc<RwLock<Vec<String>>>) {
