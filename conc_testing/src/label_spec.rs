@@ -4,12 +4,11 @@ use regex::Regex;
 /// which can be used to specify a condition for when a label should be hit.
 /// Labels can be composed for flexible condition specification
 /// 
-/// ```
-/// // Run to Label 1 in thread0
+/// ```rust,ignore
 /// RunTo!("thread0", StringLabel::new("Label 1")).await;
 /// 
 /// // Run to any label that starts with foo in thread0
-/// RunTo!("thread0", RegexLabel::new(Regex::new(r"foo*")).await;
+/// RunTo!("thread0", RegexLabel::new(Regex::new(r"foo*"))).await;
 /// 
 /// // Run to the fifth hit of Label 1 in thread0
 /// RunTo!("thread0", RepeatedLabel::new(StringLabel::new("Label 1"), 5)).await;
@@ -36,6 +35,7 @@ pub struct StringLabel {
     label: String,
     hit: bool
 }
+#[allow(dead_code)]
 impl StringLabel {
     pub fn new(label: &str) -> StringLabel {
         return StringLabel {
@@ -44,6 +44,7 @@ impl StringLabel {
         }
     }
 }
+#[allow(dead_code)]
 impl LabelTrait for StringLabel {
     fn register(&mut self, label: &str) {
         if label == self.label {
@@ -93,6 +94,7 @@ pub struct RepeatedLabel {
     count: u64,
     current_count: u64
 }
+#[allow(dead_code)]
 impl RepeatedLabel {
     pub fn new<L:LabelTrait + 'static>(label: L, count: u64) -> RepeatedLabel {
         RepeatedLabel {
@@ -102,6 +104,7 @@ impl RepeatedLabel {
         }
     }
 }
+#[allow(dead_code)]
 impl LabelTrait for RepeatedLabel {
     fn register(&mut self, label: &str) {
         self.label.register(label);
@@ -122,6 +125,7 @@ impl LabelTrait for RepeatedLabel {
 pub struct OrLabel {
     labels: Vec<Box<dyn LabelTrait>>,
 }
+#[allow(dead_code)]
 impl OrLabel {
     pub fn new<L:LabelTrait + 'static>(labels: Vec<L>) -> OrLabel {
         OrLabel {
@@ -129,6 +133,7 @@ impl OrLabel {
         }
     }
 }
+#[allow(dead_code)]
 impl LabelTrait for OrLabel {
     fn register(&mut self, label: &str) {
         for l in &mut self.labels {

@@ -5,14 +5,24 @@ use syn::parse::{Parse, ParseStream};
 use syn::{punctuated::Punctuated};
 
 
-/*
-from
-    Label!("label 1");
-
-to
-    tokitest_thread_controller.label("label 1").await;
-    tokitest_thread_controller.label("label 1 block").await;
-*/
+/// Mark a Label in a [`testable!`] function, that the `MainController` can [`RunTo!`].
+/// 
+/// ## Usage
+/// ```rust,ignore
+/// // code
+/// Label!("label 1");
+/// // code
+/// Label!("label 2");
+/// // code
+/// ```
+/// 
+/// ## Expansion
+/// ```rust,ignore
+/// Label!("label 1");
+/// // Expands to
+/// tokitest_thread_controller.label("label 1").await;
+/// tokitest_thread_controller.label("label 1 block").await;
+/// ```
 #[proc_macro]
 pub fn Label(input: TokenStream) -> TokenStream {
     let label = syn::parse_macro_input!(input as syn::LitStr);
@@ -26,16 +36,30 @@ pub fn Label(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-// implement testable
-/*
-from
-    #[testable]
-    fn <fn_name> (args){
-    }
-to
-    fn <fn_name> (tokitest_thread_controller &std::sync::Arc<ThreadController>, args){
-    }
-*/
+/// Mark a function as `testable` to allow it to contain [`Label!`], [`Call!`], [`NetworkCall!`]
+/// 
+/// ## Usage
+/// ```rust,ignore
+/// #[testable]
+/// fn my_function (arg: i32, ...){
+///     Label!("label 1");
+///     Call!(my_other_testable_function_with_labels())
+///     Label!("label 2");
+///     ...
+/// }
+/// ```
+/// 
+/// ## Expanded
+/// ```rust,ignore
+/// #[testable]
+/// fn my_function (arg: i32, ...) {
+///     ...
+/// }
+/// // Expands to
+/// fn my_function (tokitest_thread_controller &std::sync::Arc<ThreadController>, arg: i32, ...) {
+///     ...
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn testable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut input_fn = parse_macro_input!(item as ItemFn);
@@ -58,6 +82,24 @@ pub fn testable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     })
 }
 
+/// Makes all functions in an impl block `testable`
+///
+/// ## Usage
+/// ```rust,ignore
+/// struct MyStruct {}
+/// 
+/// #[Testable]
+/// impl MyStruct {
+///     fn my_func() {
+///         Label!("label 1");
+///         // ...
+///     }
+///     fn my_func2() {
+///         Label!("label 2");
+///         // ...
+///     }
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn Testable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut impl_block = syn::parse_macro_input!(item as syn::ItemImpl);
@@ -105,20 +147,20 @@ to
 
     }
 */
-// #[proc_macro]
-// pub fn Call(input: TokenStream) -> TokenStream {
-//     use syn::{parse_macro_input, ExprCall};
 
-//     let expr = parse_macro_input!(input as ExprCall);
-//     let func = &expr.func;
-//     let args = &expr.args;
-
-//     let expanded = quote! {
-//         #func(tokitest_thread_controller.clone(), #args)
-//     };
-
-//     TokenStream::from(expanded)
-// }
+/// All [`testable`] functions must be called with this macro for [`Label!`] to work.
+/// 
+/// [`Call!`] can only be used from within a [`testable`] function or a tokitest.
+/// 
+/// ## Usage
+/// ```rust,ignore
+/// #[testable]
+/// fn my_function (arg: i32, ...) {
+///     Label!("label 1");
+/// }
+/// 
+/// Call!(my_function(123));
+/// ```
 #[proc_macro]
 pub fn Call(input: TokenStream) -> TokenStream {
     let expr = parse_macro_input!(input as Expr);
@@ -130,7 +172,7 @@ pub fn Call(input: TokenStream) -> TokenStream {
             };
             TokenStream::from(expanded)
         }
-        Expr::MethodCall(mut method_call) => {
+        Expr::MethodCall(method_call) => {
             let method = &method_call.method;
             let receiver = &method_call.receiver;
             let args = &method_call.args;
@@ -334,7 +376,7 @@ to
 #[proc_macro]
 pub fn CreateMainController(_input: TokenStream) -> TokenStream {
     let expanded = quote! {
-        let tokitest_main_controller = Arc::new(MainController::new());
+        let tokitest_main_controller = Arc::new(controller::MainController::new());
         let tokitest_thread_controller = tokitest_main_controller.nest("").await;
     };
     TokenStream::from(expanded)
@@ -353,6 +395,7 @@ impl Parse for RunToArgs {
 }
 
 
+/// Thingy
 #[proc_macro]
 pub fn RunTo(input: TokenStream) -> TokenStream {
     let RunToArgs { args } = syn::parse_macro_input!(input as RunToArgs);

@@ -1,7 +1,7 @@
 use conc_testing::controller;
 use conc_testing::label_spec;
 
-use controller::{MainController, Nestable, ThreadController};
+use controller::{Nestable, ThreadController};
 use label_spec::{RepeatedLabel, StringLabel};
 use testable::CreateMainController;
 use testable::RunTo;

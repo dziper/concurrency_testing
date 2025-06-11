@@ -3,8 +3,9 @@ use tokio::{sync::{mpsc::{Sender, Receiver, channel}, RwLock}};
 
 use crate::label_spec::{LabelTrait, StringLabel};
 
+#[allow(dead_code)]
 pub trait Nestable {
-    async fn nest(&self, id: &str) -> Arc<ThreadController>;
+    fn nest(&self, id: &str) -> impl std::future::Future<Output = Arc<ThreadController>> + Send;
 }
 
 #[derive(Debug)]
@@ -14,6 +15,7 @@ struct MainControllerData {
     isolated_ids: Vec<String>,
 }
 
+#[allow(dead_code)]
 impl MainControllerData {
     pub fn new() -> MainControllerData {
         MainControllerData {
@@ -52,12 +54,14 @@ pub struct MainController {
     data: Arc<RwLock<MainControllerData>>
 }
 
+#[allow(dead_code)]
 impl MainController {
     /// It is recommended to create MainController with [`testable::CreateMainController`]
     pub fn new() -> MainController {
         MainController { data: Arc::new(RwLock::new(MainControllerData::new())) }
     }
 
+    /// It is recommended to use [`testable::RunTo`] instead of this function
     pub async fn run_to_end(&self, id: &str) {
         self.run_to(id, "END").await;
     }
@@ -107,6 +111,7 @@ impl Nestable for MainController {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct ThreadController {
     id: String,
@@ -125,6 +130,7 @@ impl Nestable for ThreadController {
     }
 }
 
+#[allow(dead_code)]
 impl ThreadController {
     
     /// It is recommended to use [`testable::Spawn`] or [`testable::SpawnJoinSet`] instead of this function
@@ -168,11 +174,8 @@ impl ThreadController {
 
     /// It is recommended to use [`testable::Label`] instead of this function
     pub async fn label(&self, label: &str) {
-        println!("{} Entering label {}", self.id, label);
         let _ = self.proceed_chan.1.write().await.recv().await.unwrap();
-        println!("{} write lock for red label {}", self.id, label);
         let _ = self.label_chan.0.send(label.to_string()).await;
-        println!("{} exiting {}", self.id, label);
     }
 
     /// It is recommended to use [`testable::NetworkCall`] instead of manually testing for isolated threads.
