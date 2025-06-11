@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tokio::{sync::RwLock};
 use tokio::time::{sleep, Duration};
-use tokitest::{label, spawn, call, run_to};
+use tokitest::{label, spawn, call, run_to, complete};
 
 pub struct Worker{
     data: Arc<RwLock<Vec<i32>>>,
@@ -84,9 +84,9 @@ async fn test_two_threads_struct() {
     run_to!("thread0", "label 2").await;
     assert_eq!(vec![1,2,11,12,13,14,15,3,4,5], *data.read().await);
 
-    run_to!("thread0", "END").await;
+    complete!("thread0").await;
     assert_eq!(vec![1,2,11,12,13,14,15,3,4,5,6,7,8], *data.read().await);
 
-    run_to!("thread1", "END").await;
+    complete!("thread1").await;
     assert_eq!(vec![1,2,11,12,13,14,15,3,4,5,6,7,8,16,17,18], *data.read().await);
 }

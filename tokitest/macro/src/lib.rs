@@ -450,6 +450,27 @@ pub fn run_to(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+/**
+from
+    complete!("thrad-id").await
+
+to
+    async {
+        tokitest_main_controller.run_to_end("thread_id").await
+    }
+*/
+#[proc_macro]
+pub fn complete(input: TokenStream) -> TokenStream {
+    let thread_id = syn::parse_macro_input!(input as syn::LitStr);
+
+    let expanded = quote! {
+        tokitest_main_controller.run_to_end(#thread_id)
+    };
+
+    TokenStream::from(expanded)
+}
+
+
 
 #[proc_macro_attribute]
 pub fn test(_attr: TokenStream, item: TokenStream) -> TokenStream {

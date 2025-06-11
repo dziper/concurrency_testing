@@ -1,6 +1,6 @@
 use tokio::join;
 use tokio::task::JoinSet;
-use tokitest::{label, run_to, spawn_join_set};
+use tokitest::{label, run_to, complete, spawn_join_set};
 
 #[tokitest::test]
 async fn test_one_thread() {
@@ -18,8 +18,8 @@ async fn test_one_thread() {
         run_to!("spawned0", "label 1"),
         run_to!("spawned1", "label 1"),
         run_to!("spawned2", "label 1"),
-        run_to!("spawned3", "END"),
-        run_to!("spawned4", "END"),
+        complete!("spawned3"),
+        complete!("spawned4"),
     };
 
     if let Some(Ok(join_res)) = set.join_next().await {
@@ -30,9 +30,9 @@ async fn test_one_thread() {
     }
 
     join!(
-        run_to!("spawned0", "END"),
-        run_to!("spawned1", "END"),
-        run_to!("spawned2", "END"),
+        complete!("spawned0"),
+        complete!("spawned1"),
+        complete!("spawned2"),
     );
 
     while let Some(Ok(join_res)) = set.join_next().await {

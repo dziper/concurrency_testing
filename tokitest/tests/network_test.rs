@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tokio::{sync::RwLock};
 use tokio::time::{sleep, Duration};
-use tokitest::{run_to, label, spawn, call, network_call, isolate};
+use tokitest::{run_to, label, complete, spawn, call, network_call, isolate};
 
 #[tokitest::testable]
 async fn make_network_request(url: &str, results: Arc<RwLock<Vec<String>>>) {
@@ -50,7 +50,7 @@ async fn test_network_call_normal() {
     assert!(data[0].contains("success"));
     assert!(data[0].contains("data from http://api.example.com"));
 
-    run_to!("thread1", "END").await;
+    complete!("thread1").await;
 }
 
 #[tokitest::test]
@@ -71,5 +71,5 @@ async fn test_network_call_error() {
     assert!(data[0].contains("error"));
     assert!(data[0].contains("Network is dead"));
 
-    run_to!("thread1", "END").await;
+    complete!("thread1").await;
 }

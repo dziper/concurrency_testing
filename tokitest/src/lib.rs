@@ -26,5 +26,6 @@ pub use tokitest_macro::{
     spawn_join_set,
     call,
     network_call,
-    isolate
+    isolate,
+    complete
 };

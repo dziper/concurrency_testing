@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tokio::{sync::RwLock};
 use tokio::time::{sleep, Duration};
-use tokitest::{label, spawn, call, run_to, OrLabel, StringLabel, RepeatedLabel};
+use tokitest::{label, spawn, call, run_to, complete, OrLabel, StringLabel, RepeatedLabel};
 
 #[tokitest::testable]
 async fn process_with_labels(data: Arc<RwLock<Vec<String>>>) {
@@ -42,7 +42,7 @@ async fn test_or_label() {
         *data.read().await
     );
 
-    run_to!("thread1", "END").await;
+    complete!("thread1").await;
 
     // Should have all 10 items now
     assert_eq!(

@@ -2,7 +2,7 @@
 use std::sync::Arc;
 use tokio::{sync::RwLock};
 use tokio::time::{sleep, Duration};
-use tokitest::{label, spawn, call, run_to, RepeatedLabel, StringLabel};
+use tokitest::{label, spawn, call, run_to, complete, RepeatedLabel, StringLabel};
 
 #[tokitest::testable]
 async fn nested_shared_write(offset: i32, data: Arc<RwLock<Vec<i32>>>) {
@@ -27,7 +27,7 @@ async fn test_one_thread() {
 	run_to!("thread1", RepeatedLabel::new(StringLabel::new("loop label"), 5)).await;
 	assert_eq!(vec![0,1,2,3,4], *data.read().await);
 
-	run_to!("thread1", "END").await;
+	complete!("thread1").await;
 	assert_eq!(vec![0,1,2,3,4,5,6,7,8,9], *data.read().await);
 }
 
@@ -55,13 +55,13 @@ async fn test_two_thread() {
 	// tokitest_thread_controller.run_to_label("thread2", RepeatedLabel::new(StringLabel::new("loop label"), 3));
 	assert_eq!(vec![0,1,2,3,4,10,11,12], *data.read().await);
 
-	run_to!("thread1", "END").await;
+	complete!("thread1").await;
 	assert_eq!(vec![0,1,2,3,4,10,11,12,5,6,7,8,9], *data.read().await);
 
 	run_to!("thread2", RepeatedLabel::new(StringLabel::new("loop label"), 3)).await;
 	// tokitest_thread_controller.run_to_label("thread2", RepeatedLabel::new(StringLabel::new("loop label"), 3));
 	assert_eq!(vec![0,1,2,3,4,10,11,12,5,6,7,8,9,13,14,15], *data.read().await);
 
-	run_to!("thread2", "END").await;
+	complete!("thread2").await;
 	assert_eq!(vec![0,1,2,3,4,10,11,12,5,6,7,8,9,13,14,15,16,17,18,19], *data.read().await);
 }
