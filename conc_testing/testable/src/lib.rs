@@ -209,7 +209,7 @@ to
     tokio::spawn(async move {
         tcNew.label("INIT").await;
         let tokitest_thread_controller = tcNew.clone();
-        let result = { 
+        let result = {
             // some async code
         }.await;
         tcNew.label("END").await;
@@ -316,6 +316,10 @@ to
 */
 #[proc_macro]
 pub fn NetworkCall(input: TokenStream) -> TokenStream {
+    use quote::quote;
+    use syn::{parse_macro_input, Expr, Token};
+    use syn::parse::{Parse, ParseStream};
+
     struct NetworkCallInput {
         network_call: Expr,
         _comma: Token![,],
@@ -337,9 +341,9 @@ pub fn NetworkCall(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         {
             if tokitest_thread_controller.is_isolated().await {
-                Box::pin(#error_callback) as std::pin::Pin<Box<dyn std::future::Future<Output = _> + Send>>
+                futures::future::Either::Right(#error_callback)
             } else {
-                Box::pin(#network_call) as std::pin::Pin<Box<dyn std::future::Future<Output = _> + Send>>
+                futures::future::Either::Left(#network_call)
             }
         }
     };
@@ -368,7 +372,7 @@ pub fn Isolate(input: TokenStream) -> TokenStream {
 }
 
 /*
-from 
+from
 CreateMainController!()
 to
 
