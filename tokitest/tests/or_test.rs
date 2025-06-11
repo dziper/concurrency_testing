@@ -2,9 +2,9 @@ use std::sync::Arc;
 use tokio::{sync::RwLock};
 use tokio::time::{sleep, Duration};
 use tokitest::prelude::*;
-use tokitest::{testable, label, spawn, call, start_tokitest, run_to, OrLabel, StringLabel, RepeatedLabel};
+use tokitest::{label, spawn, call, run_to, OrLabel, StringLabel, RepeatedLabel};
 
-#[testable]
+#[tokitest::testable]
 async fn process_with_labels(data: Arc<RwLock<Vec<String>>>) {
     for i in 0..10 {
         if i % 2 == 0 {
@@ -18,11 +18,9 @@ async fn process_with_labels(data: Arc<RwLock<Vec<String>>>) {
     }
 }
 
-#[tokio::test]
+#[tokitest::test]
 async fn test_or_label() {
     let data = Arc::new(RwLock::new(Vec::<String>::new()));
-
-    start_tokitest!();
 
     let dc = data.clone();
     spawn!("thread1", async {

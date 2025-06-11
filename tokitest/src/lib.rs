@@ -18,7 +18,7 @@ pub use crate::label_spec::{
 };
 
 pub use tokitest_macro::{
-    start_tokitest,
+    test,
     run_to,
     testable,
     testable_struct,

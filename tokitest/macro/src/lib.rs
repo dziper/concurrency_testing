@@ -5,7 +5,7 @@ use syn::parse::{Parse, ParseStream};
 use syn::{punctuated::Punctuated};
 
 /// Mark a Label in a [`testable!`] function, that the `MainController` can [`run_to!`].
-/// 
+///
 /// ## Usage
 /// ```rust,ignore
 /// // code
@@ -14,7 +14,7 @@ use syn::{punctuated::Punctuated};
 /// label!("label 2");
 /// // code
 /// ```
-/// 
+///
 /// ## Expansion
 /// ```rust,ignore
 /// label!("label 1");
@@ -36,7 +36,7 @@ pub fn label(input: TokenStream) -> TokenStream {
 }
 
 /// Mark a function as `testable` to allow it to contain [`label!`], [`call!`], [`Networkcall!`]
-/// 
+///
 /// ## Usage
 /// ```rust,ignore
 /// #[testable]
@@ -47,7 +47,7 @@ pub fn label(input: TokenStream) -> TokenStream {
 ///     ...
 /// }
 /// ```
-/// 
+///
 /// ## Expanded
 /// ```rust,ignore
 /// #[testable]
@@ -86,7 +86,7 @@ pub fn testable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// ## Usage
 /// ```rust,ignore
 /// struct MyStruct {}
-/// 
+///
 /// #[testable_struct]
 /// impl MyStruct {
 ///     fn my_func() {
@@ -148,16 +148,16 @@ to
 */
 
 /// All [`testable`] functions must be called with this macro for [`label!`] to work.
-/// 
+///
 /// [`call!`] can only be used from within a [`testable`] function or a tokitest.
-/// 
+///
 /// ## Usage
 /// ```rust,ignore
 /// #[testable]
 /// fn my_function (arg: i32, ...) {
 ///     label!("label 1");
 /// }
-/// 
+///
 /// call!(my_function(123));
 /// ```
 #[proc_macro]
@@ -208,7 +208,7 @@ to
     tokio::spawn(async move {
         tcNew.label("INIT").await;
         let tokitest_thread_controller = tcNew.clone();
-        let result = { 
+        let result = {
             // some async code
         }.await;
         tcNew.label("END").await;
@@ -368,20 +368,20 @@ pub fn isolate(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-/*
-from 
-start_tokitest!()
-to
+// /*
+// from
+// start_tokitest!()
+// to
 
-*/
-#[proc_macro]
-pub fn start_tokitest(_input: TokenStream) -> TokenStream {
-    let expanded = quote! {
-        let tokitest_main_controller = Arc::new(::tokitest::controller::MainController::new());
-        let tokitest_thread_controller = tokitest_main_controller.nest("").await;
-    };
-    TokenStream::from(expanded)
-}
+// */
+// #[proc_macro]
+// pub fn start_tokitest(_input: TokenStream) -> TokenStream {
+//     let expanded = quote! {
+//         let tokitest_main_controller = Arc::new(::tokitest::controller::MainController::new());
+//         let tokitest_thread_controller = tokitest_main_controller.nest("").await;
+//     };
+//     TokenStream::from(expanded)
+// }
 
 struct RunToArgs {
     args: Punctuated<Expr, Token![,]>,
@@ -446,4 +446,32 @@ pub fn run_to(input: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(expanded)
+}
+
+
+#[proc_macro_attribute]
+pub fn test(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let mut input_fn = parse_macro_input!(item as ItemFn);
+
+    // Extract the original function body
+    let original_body = &input_fn.block;
+
+    // Generate new body with tokitest setup + original code
+    let new_body = quote! {
+        {
+            let tokitest_main_controller = std::sync::Arc::new(::tokitest::controller::MainController::new());
+            let tokitest_thread_controller = tokitest_main_controller.nest("").await;
+
+            #original_body
+        }
+    };
+
+    // Replace the function body
+    input_fn.block = syn::parse2(new_body).unwrap();
+
+    // Add tokio::test attribute and return the modified function
+    quote! {
+        #[tokio::test]
+        #input_fn
+    }.into()  // <-- Add this!
 }

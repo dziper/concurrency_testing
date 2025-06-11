@@ -1,13 +1,10 @@
-use std::sync::Arc;
 use tokio::join;
 use tokio::task::JoinSet;
 use tokitest::prelude::*;
-use tokitest::{start_tokitest, label, run_to, spawn_join_set};
+use tokitest::{label, run_to, spawn_join_set};
 
-#[tokio::test]
+#[tokitest::test]
 async fn test_one_thread() {
-    start_tokitest!();
-
     let mut set: JoinSet<i32> = JoinSet::new();
     for i in 0..5 {
         // let dc = data.clone();

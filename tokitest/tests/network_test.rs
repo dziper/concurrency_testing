@@ -2,9 +2,9 @@ use std::sync::Arc;
 use tokio::{sync::RwLock};
 use tokio::time::{sleep, Duration};
 use tokitest::prelude::*;
-use tokitest::{start_tokitest, run_to, testable, label, spawn, call, network_call, isolate};
+use tokitest::{run_to, label, spawn, call, network_call, isolate};
 
-#[testable]
+#[tokitest::testable]
 async fn make_network_request(url: &str, results: Arc<RwLock<Vec<String>>>) {
     label!("before network call");
 
@@ -34,11 +34,9 @@ async fn mock_http_error_handler() -> Result<String, String> {
     Err("Network is dead".to_string())
 }
 
-#[tokio::test]
+#[tokitest::test]
 async fn test_network_call_normal() {
     let results = Arc::new(RwLock::new(Vec::<String>::new()));
-
-    start_tokitest!();
 
     let results_clone = results.clone();
     spawn!("thread1", async {
@@ -56,11 +54,9 @@ async fn test_network_call_normal() {
     run_to!("thread1", "END").await;
 }
 
-#[tokio::test]
+#[tokitest::test]
 async fn test_network_call_error() {
     let results = Arc::new(RwLock::new(Vec::<String>::new()));
-
-    start_tokitest!();
 
     let results_clone = results.clone();
     spawn!("thread1", async {

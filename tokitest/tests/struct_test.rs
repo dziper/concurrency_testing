@@ -2,15 +2,14 @@ use std::sync::Arc;
 use tokio::{sync::RwLock};
 use tokio::time::{sleep, Duration};
 use tokitest::prelude::*;
-use tokitest::{testable_struct, label, spawn, call, run_to, start_tokitest};
+use tokitest::{label, spawn, call, run_to};
 
 pub struct Worker{
     data: Arc<RwLock<Vec<i32>>>,
 }
 
-#[testable_struct]
+#[tokitest::testable_struct]
 impl Worker {
-
     pub fn new(data: Arc<RwLock<Vec<i32>>>) -> Self {
         Worker {
             data: data,
@@ -57,12 +56,10 @@ impl Worker {
 }
 
 
-#[tokio::test]
+#[tokitest::test]
 async fn test_two_threads_struct() {
     let data: Arc<RwLock<Vec<i32>>> = Arc::new(RwLock::new(vec![]));
-    start_tokitest!();
     println!("Calling nest");
-
 
     let obj = Arc::new(call!(Worker::new(data.clone())));
 
@@ -78,7 +75,6 @@ async fn test_two_threads_struct() {
 
     // assert!(false);
     assert_eq!(Vec::<i32>::new(), *data.read().await);
-
 
     run_to!("thread0", "label 1").await;
     assert_eq!(vec![1,2], *data.read().await);
