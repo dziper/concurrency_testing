@@ -1,11 +1,11 @@
 [package]
-name = "conc_testing"
+name = "tokitest"
 version = "0.1.0"
 edition = "2021"
 
 [workspace]
 members = [
-    "testable",
+    "tokitest-macro",
     "."
 ]
 
@@ -13,11 +13,10 @@ members = [
 tokio = { version = "1", features = ["full"] }
 log = "0.4"
 regex = "1"
-testable = { path = "testable" }
-futures = "0.3.31"
+tokitest-macro = { path = "macro" }
 
 [dev-dependencies]
-testable = { path = "testable" }
+tokitest-macro = { path = "macro" }
 
 [features]
 tokitest = []

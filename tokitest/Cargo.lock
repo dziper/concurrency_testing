@@ -66,17 +66,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "conc_testing"
-version = "0.1.0"
-dependencies = [
- "futures",
- "log",
- "regex",
- "testable",
- "tokio",
-]
-
-[[package]]
 name = "futures"
 version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -380,6 +369,7 @@ dependencies = [
 name = "testable"
 version = "0.1.0"
 dependencies = [
+ "futures",
  "quote",
  "syn",
 ]
@@ -411,6 +401,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "tokitest"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "regex",
+ "testable",
+ "tokio",
 ]
 
 [[package]]

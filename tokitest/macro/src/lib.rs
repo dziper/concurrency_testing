@@ -337,9 +337,11 @@ pub fn network_call(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         {
             if tokitest_thread_controller.is_isolated().await {
-                Box::pin(#error_callback) as std::pin::Pin<Box<dyn std::future::Future<Output = _> + Send>>
+                // Box::pin(#error_callback) as std::pin::Pin<Box<dyn std::future::Future<Output = _> + Send>>
+                ::futures::future::Either::Left(#error_callback)
             } else {
-                Box::pin(#network_call) as std::pin::Pin<Box<dyn std::future::Future<Output = _> + Send>>
+                // Box::pin(#network_call) as std::pin::Pin<Box<dyn std::future::Future<Output = _> + Send>>
+                ::futures::future::Either::Right(#network_call)
             }
         }
     };
