@@ -7,8 +7,7 @@ pub mod macros {
 }
 
 pub mod controller;
-pub mod label_spec;
-pub mod prelude;
+mod label_spec;
 
 pub use crate::label_spec::{
     OrLabel,

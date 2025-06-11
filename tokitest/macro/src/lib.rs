@@ -237,7 +237,8 @@ pub fn spawn(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         {
-            let tcNew = tokitest_thread_controller.nest(#label).await;
+            // let tcNew = tokitest_thread_controller.nest(#label).await;
+            let tcNew = tokitest_thread_controller.nest().with_id(#label).build().await;
             tokio::spawn(async move {
                 tcNew.label("INIT").await;
                 let tokitest_thread_controller = tcNew.clone();
@@ -286,7 +287,8 @@ pub fn spawn_join_set(item: TokenStream) -> TokenStream {
         let _ = ();
 
         {
-            let tcNew = tokitest_thread_controller.nest(#label_expr).await;
+            // let tcNew = tokitest_thread_controller.nest(#label_expr).await;
+            let tcNew = tokitest_thread_controller.nest().with_id(#label_expr).build().await;
             #joinset_var.spawn(async move {
                 tcNew.label("INIT").await;
                 let tokitest_thread_controller = tcNew.clone();
@@ -460,7 +462,7 @@ pub fn test(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let new_body = quote! {
         {
             let tokitest_main_controller = std::sync::Arc::new(::tokitest::controller::MainController::new());
-            let tokitest_thread_controller = tokitest_main_controller.nest("").await;
+            let tokitest_thread_controller = tokitest_main_controller.nest().build().await;
 
             #original_body
         }

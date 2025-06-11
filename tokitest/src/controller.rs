@@ -3,14 +3,29 @@ use tokio::{sync::{mpsc::{Sender, Receiver, channel}, RwLock}};
 
 use crate::label_spec::{LabelTrait, StringLabel};
 
-#[allow(dead_code)]
-pub trait Nestable {
-    fn nest(&self, id: &str) -> impl std::future::Future<Output = Arc<ThreadController>> + Send;
+pub struct ThreadNestBuilder {
+    main_controller_data: Arc<RwLock<MainControllerData>>,
+    id: Option<String>,
 }
 
-impl<T: Nestable> Nestable for Arc<T> {
-    fn nest(&self, id: &str) -> impl std::future::Future<Output = Arc<ThreadController>> + Send {
-        self.as_ref().nest(id)
+impl ThreadNestBuilder {
+    fn new(data: Arc<RwLock<MainControllerData>>) -> Self {
+        Self {
+            main_controller_data: data,
+            id: None,
+        }
+    }
+
+    pub fn with_id(mut self, id: &str) -> Self {
+        self.id = Some(id.to_string());
+        self
+    }
+
+    pub async fn build(self) -> Arc<ThreadController> {
+        let id = self.id.unwrap_or_else(|| "".to_string());
+        let tc = Arc::new(ThreadController::new(&id, self.main_controller_data.clone()));
+        self.main_controller_data.write().await.add_thread(&id, tc.clone()).await;
+        tc
     }
 }
 
@@ -52,7 +67,7 @@ impl MainControllerData {
 }
 
 /// Use [`testable::start_tokitest`] in the main test thread, this object manages nesting other threads and running to labels
-/// 
+///
 /// Creating the MainController should be done with the [`testable::start_tokitest`] macro
 /// Manually calling [`MainController::run_to`], [`MainController::isolate`] and [`MainController::nest`] should be avoided, and instead [`testable::run_to`], [`testable::Isolate`], and [`testable::Spawn`] should be used.
 #[derive(Debug)]
@@ -106,14 +121,15 @@ impl MainController {
     pub async fn isolate(&self, id: &str) {
         self.data.write().await.isolate(id);
     }
-}
 
-impl Nestable for MainController {
-    /// It is recommended to use [`testable::Spawn`] or [`testable::SpawnJoinSet`] instead of this function
-    async fn nest(&self, id: &str) -> Arc<ThreadController> {
-        let tc = Arc::new(ThreadController::new(id, self.data.clone()));
-        self.data.write().await.add_thread(&id, tc.clone()).await;
-        return tc;
+    // /// It is recommended to use [`testable::Spawn`] or [`testable::SpawnJoinSet`] instead of this function
+    // async fn nest(&self, id: &str) -> Arc<ThreadController> {
+    //     let tc = Arc::new(ThreadController::new(id, self.data.clone()));
+    //     self.data.write().await.add_thread(&id, tc.clone()).await;
+    //     return tc;
+    // }
+    pub fn nest(&self) -> ThreadNestBuilder {
+        ThreadNestBuilder::new(self.data.clone())
     }
 }
 
@@ -126,19 +142,9 @@ pub struct ThreadController {
     main_controller_data: Arc<RwLock<MainControllerData>>
 }
 
-impl Nestable for ThreadController {
-    /// It is recommended to use [`testable::Spawn`] or [`testable::SpawnJoinSet`] instead of this function
-    async fn nest(&self, id: &str) -> Arc<ThreadController> {
-        let new_id = self.id.clone() + id; // TODO: Use a seperator?
-        let tc = Arc::new(ThreadController::new(&new_id, self.main_controller_data.clone()));
-        self.main_controller_data.write().await.add_thread(&new_id, tc.clone()).await;
-        return tc;
-    }
-}
-
 #[allow(dead_code)]
 impl ThreadController {
-    
+
     /// It is recommended to use [`testable::Spawn`] or [`testable::SpawnJoinSet`] instead of this function
     // creates a named controller associated with a thread
     fn new(id: &str, mc_data: Arc<RwLock<MainControllerData>>) -> ThreadController {
@@ -187,5 +193,16 @@ impl ThreadController {
     /// It is recommended to use [`testable::NetworkCall`] instead of manually testing for isolated threads.
     pub async fn is_isolated(&self) -> bool {
         return self.main_controller_data.read().await.is_isolated(&self.id);
+    }
+
+    /// It is recommended to use [`testable::Spawn`] or [`testable::SpawnJoinSet`] instead of this function
+    // async fn nest(&self, id: &str) -> Arc<ThreadController> {
+    //     let new_id = self.id.clone() + id; // TODO: Use a seperator?
+    //     let tc = Arc::new(ThreadController::new(&new_id, self.main_controller_data.clone()));
+    //     self.main_controller_data.write().await.add_thread(&new_id, tc.clone()).await;
+    //     return tc;
+    // }
+    pub fn nest(&self) -> ThreadNestBuilder {
+        ThreadNestBuilder::new(self.main_controller_data.clone())
     }
 }

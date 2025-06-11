@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use tokio::{sync::RwLock};
 use tokio::time::{sleep, Duration};
-use tokitest::prelude::*;
 use tokitest::{run_to, label, spawn, call, network_call, isolate};
 
 #[tokitest::testable]

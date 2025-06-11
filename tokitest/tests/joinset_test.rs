@@ -1,6 +1,5 @@
 use tokio::join;
 use tokio::task::JoinSet;
-use tokitest::prelude::*;
 use tokitest::{label, run_to, spawn_join_set};
 
 #[tokitest::test]
