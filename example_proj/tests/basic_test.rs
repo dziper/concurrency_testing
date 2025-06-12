@@ -1,4 +1,4 @@
-use example_proj::main::my_async_func;
+use example_proj::funcs::my_async_func;
 use tokitest::{test, call, label, spawn, run_to};
 
 #[tokitest::test]
