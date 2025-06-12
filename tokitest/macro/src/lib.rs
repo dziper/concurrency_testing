@@ -2,7 +2,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, Error, Expr, ExprCall, FnArg, Ident, ItemFn, Token};
 use syn::parse::{Parse, ParseStream};
-use syn::{punctuated::Punctuated};
+use syn::{punctuated::Punctuated, ImplItem, ItemImpl};
 
 /// Mark a Label in a [`testable!`] function, that the `MainController` can [`run_to!`].
 ///
@@ -29,8 +29,11 @@ pub fn label(input: TokenStream) -> TokenStream {
     let block_label = format!("{} block", label_str);
 
     let expanded = quote! {
-        tokitest_thread_controller.label(#label).await;
-        tokitest_thread_controller.label(#block_label).await;
+        #[cfg(test)] // Label expands to nothing when not in test mode
+        {
+            tokitest_thread_controller.label(#label).await;
+            tokitest_thread_controller.label(#block_label).await;
+        }
     };
     TokenStream::from(expanded)
 }
@@ -73,11 +76,17 @@ pub fn testable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         _ => 0,                             // normal free function
     };
 
+    let unchanged_input_fn = input_fn.clone();
+
     input_fn.sig.inputs.insert(insert_pos, controller_arg);
 
     // Return modified function
     TokenStream::from(quote! {
+        #[cfg(test)]
         #input_fn
+        
+        #[cfg(not(test))]
+        #unchanged_input_fn
     })
 }
 
@@ -99,30 +108,81 @@ pub fn testable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 ///     }
 /// }
 /// ```
+// #[proc_macro_attribute]
+// pub fn testable_struct(_attr: TokenStream, item: TokenStream) -> TokenStream {
+//     let mut impl_block = syn::parse_macro_input!(item as syn::ItemImpl);
+
+//     for impl_item in impl_block.items.iter_mut() {
+//         if let syn::ImplItem::Fn(method) = impl_item {
+//             // Build the controller argument
+//             let controller_arg: syn::FnArg = syn::parse_quote! {
+//                 tokitest_thread_controller: std::sync::Arc<::tokitest::controller::ThreadController>
+//             };
+
+//             // Where to insert: after `self` if present
+//             let insert_pos = match method.sig.inputs.first() {
+//                 Some(syn::FnArg::Receiver(_)) => 1,
+//                 _ => 0,
+//             };
+
+//             method.sig.inputs.insert(insert_pos, controller_arg);
+//         }
+//     }
+
+//     // Return modified impl block
+//     TokenStream::from(quote! {
+//         #impl_block
+//     })
+// }
+
 #[proc_macro_attribute]
 pub fn testable_struct(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let mut impl_block = syn::parse_macro_input!(item as syn::ItemImpl);
+    let input_impl = parse_macro_input!(item as ItemImpl);
 
-    for impl_item in impl_block.items.iter_mut() {
-        if let syn::ImplItem::Fn(method) = impl_item {
-            // Build the controller argument
-            let controller_arg: syn::FnArg = syn::parse_quote! {
-                tokitest_thread_controller: std::sync::Arc<::tokitest::controller::ThreadController>
-            };
+    // Split each method into two: test and non-test versions
+    let mut new_items = Vec::new();
 
-            // Where to insert: after `self` if present
-            let insert_pos = match method.sig.inputs.first() {
-                Some(syn::FnArg::Receiver(_)) => 1,
+    for item in input_impl.items {
+        if let ImplItem::Fn(method) = item {
+            let mut test_method = method.clone();
+            let non_test_method = method.clone();
+
+            // Insert controller param for test version
+            let insert_pos = match test_method.sig.inputs.first() {
+                Some(FnArg::Receiver(_)) => 1,
                 _ => 0,
             };
 
-            method.sig.inputs.insert(insert_pos, controller_arg);
+            let controller_arg: FnArg = syn::parse_quote! {
+                tokitest_thread_controller: std::sync::Arc<::tokitest::controller::ThreadController>
+            };
+
+            test_method.sig.inputs.insert(insert_pos, controller_arg);
+
+            // Wrap each in cfg
+            new_items.push(ImplItem::Verbatim(quote! {
+                #[cfg(test)]
+                #test_method
+            }));
+
+            new_items.push(ImplItem::Verbatim(quote! {
+                #[cfg(not(test))]
+                #non_test_method
+            }));
+        } else {
+            // Non-method items stay as-is
+            new_items.push(item);
         }
     }
 
-    // Return modified impl block
+    // Recreate the impl block with duplicated methods
+    let output_impl = ItemImpl {
+        items: new_items,
+        ..input_impl
+    };
+
     TokenStream::from(quote! {
-        #impl_block
+        #output_impl
     })
 }
 
@@ -315,10 +375,10 @@ pub fn spawn_join_set(item: TokenStream) -> TokenStream {
     } = parse_macro_input!(item as SpawnJoinSetInput);
 
     let expanded = quote! {
-        // No-op to help rust-analyzer parse this macro better
-        let _ = ();
 
+        #[cfg(test)]
         {
+            {
             // let tcNew = tokitest_thread_controller.nest(#label_expr).await;
             let tcNew = tokitest_thread_controller.nest().with_id(#label_expr).build().await;
             #joinset_var.spawn(async move {
@@ -328,6 +388,15 @@ pub fn spawn_join_set(item: TokenStream) -> TokenStream {
                 tcNew.label("END").await;
                 result
             })
+            }
+        }
+        #[cfg(not(test))]
+        {
+            {
+                #joinset_var.spawn(async move {
+                    #body.await
+                })
+            }
         }
     };
     TokenStream::from(expanded)
@@ -369,12 +438,19 @@ pub fn network_call(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         {
-            if tokitest_thread_controller.is_isolated().await {
-                // Box::pin(#error_callback) as std::pin::Pin<Box<dyn std::future::Future<Output = _> + Send>>
-                ::futures::future::Either::Left(#error_callback)
-            } else {
-                // Box::pin(#network_call) as std::pin::Pin<Box<dyn std::future::Future<Output = _> + Send>>
-                ::futures::future::Either::Right(#network_call)
+            #[cfg(test)]
+            {
+                if tokitest_thread_controller.is_isolated().await {
+                    // Box::pin(#error_callback) as std::pin::Pin<Box<dyn std::future::Future<Output = _> + Send>>
+                    ::futures::future::Either::Left(#error_callback)
+                } else {
+                    // Box::pin(#network_call) as std::pin::Pin<Box<dyn std::future::Future<Output = _> + Send>>
+                    ::futures::future::Either::Right(#network_call)
+                }
+            }
+            #[cfg(not(test))]
+            {
+                #network_call
             }
         }
     };
