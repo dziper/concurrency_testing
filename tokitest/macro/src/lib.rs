@@ -29,7 +29,7 @@ pub fn label(input: TokenStream) -> TokenStream {
     let block_label = format!("{} block", label_str);
 
     let expanded = quote! {
-        #[cfg(test)] // Label expands to nothing when not in test mode
+        #[cfg(feature = "tokitest")] // Label expands to nothing when not in test mode
         {
             tokitest_thread_controller.label(#label).await;
             tokitest_thread_controller.label(#block_label).await;
@@ -82,10 +82,10 @@ pub fn testable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     // Return modified function
     TokenStream::from(quote! {
-        #[cfg(test)]
+        #[cfg(feature = "tokitest")]
         #input_fn
         
-        #[cfg(not(test))]
+        #[cfg(not(feature = "tokitest"))]
         #unchanged_input_fn
     })
 }
@@ -161,12 +161,12 @@ pub fn testable_struct(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             // Wrap each in cfg
             new_items.push(ImplItem::Verbatim(quote! {
-                #[cfg(test)]
+                #[cfg(feature = "tokitest")]
                 #test_method
             }));
 
             new_items.push(ImplItem::Verbatim(quote! {
-                #[cfg(not(test))]
+                #[cfg(not(feature = "tokitest"))]
                 #non_test_method
             }));
         } else {
@@ -230,11 +230,11 @@ pub fn call(input: TokenStream) -> TokenStream {
             let args_normal = quote! { #args };
             let expanded = quote! {
                 {
-                    #[cfg(test)]
+                    #[cfg(feature = "tokitest")]
                     {
                         #func(#args_test)
                     }
-                    #[cfg(not(test))]
+                    #[cfg(not(feature = "tokitest"))]
                     {
                         #func(#args_normal)
                     }
@@ -251,11 +251,11 @@ pub fn call(input: TokenStream) -> TokenStream {
 
             let expanded = quote! {
                 {
-                    #[cfg(test)]
+                    #[cfg(feature = "tokitest")]
                     {
                         #receiver.#method(#args_test)
                     }
-                    #[cfg(not(test))]
+                    #[cfg(not(feature = "tokitest"))]
                     {
                         #receiver.#method(#args_normal)
                     }
@@ -338,7 +338,7 @@ pub fn spawn(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         {
-            #[cfg(test)]
+            #[cfg(feature = "tokitest")]
             {
                 // let tcNew = tokitest_thread_controller.nest(#label).await;
                 let tcNew = tokitest_thread_controller.nest().with_id(#label).build().await;
@@ -351,7 +351,7 @@ pub fn spawn(input: TokenStream) -> TokenStream {
                 })
             }
 
-            #[cfg(not(test))]
+            #[cfg(not(feature = "tokitest"))]
             {
                 tokio::spawn(async move {
                     #body.await
@@ -395,7 +395,7 @@ pub fn spawn_join_set(item: TokenStream) -> TokenStream {
 
     let expanded = quote! {
 
-        #[cfg(test)]
+        #[cfg(feature = "tokitest")]
         {
             {
             // let tcNew = tokitest_thread_controller.nest(#label_expr).await;
@@ -409,7 +409,7 @@ pub fn spawn_join_set(item: TokenStream) -> TokenStream {
             })
             }
         }
-        #[cfg(not(test))]
+        #[cfg(not(feature = "tokitest"))]
         {
             {
                 #joinset_var.spawn(async move {
@@ -457,7 +457,7 @@ pub fn network_call(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         {
-            #[cfg(test)]
+            #[cfg(feature = "tokitest")]
             {
                 if tokitest_thread_controller.is_isolated().await {
                     // Box::pin(#error_callback) as std::pin::Pin<Box<dyn std::future::Future<Output = _> + Send>>
@@ -467,7 +467,7 @@ pub fn network_call(input: TokenStream) -> TokenStream {
                     ::futures::future::Either::Right(#network_call)
                 }
             }
-            #[cfg(not(test))]
+            #[cfg(not(feature = "tokitest"))]
             {
                 #network_call
             }
