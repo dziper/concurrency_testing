@@ -6,23 +6,34 @@ use crate::label_spec::{LabelTrait, StringLabel};
 pub struct ThreadNestBuilder {
     main_controller_data: Arc<RwLock<MainControllerData>>,
     id: Option<String>,
+    parent_id: String
 }
 
 impl ThreadNestBuilder {
-    fn new(data: Arc<RwLock<MainControllerData>>) -> Self {
+    fn new(parent_id: &str, data: Arc<RwLock<MainControllerData>>) -> Self {
         Self {
             main_controller_data: data,
             id: None,
+            parent_id: parent_id.to_string()
         }
     }
 
     pub fn with_id(mut self, id: &str) -> Self {
+        if id.contains('.') {
+            panic!("Thread ID cannot contain '.' character, as it is used to nest threads.");
+        }
+
         self.id = Some(id.to_string());
         self
     }
 
     pub async fn build(self) -> Arc<ThreadController> {
-        let id = self.id.unwrap_or_else(|| "".to_string());
+        let id = match (self.parent_id.as_str(), self.id) {
+            ("", Some(child_id)) => child_id,
+            ("", None) => "".to_string(),
+            (_, Some(child_id)) => format!("{}.{}", self.parent_id, child_id),
+            (_, None) => format!("{}.", self.parent_id)
+        };
         let tc = Arc::new(ThreadController::new(&id, self.main_controller_data.clone()));
         self.main_controller_data.write().await.add_thread(&id, tc.clone()).await;
         tc
@@ -59,6 +70,10 @@ impl MainControllerData {
 
     pub fn isolate(&mut self, id: &str) {
         self.isolated_ids.push(id.to_string());
+    }
+
+    pub fn heal(&mut self, id: &str) {
+        self.isolated_ids.retain(|prefix| !id.starts_with(prefix));
     }
 
     pub fn is_isolated(&self, id: &str) -> bool {
@@ -122,6 +137,10 @@ impl MainController {
         self.data.write().await.isolate(id);
     }
 
+    pub async fn heal(&self, id: &str) {
+        self.data.write().await.heal(id);
+    }
+
     // /// It is recommended to use [`testable::Spawn`] or [`testable::SpawnJoinSet`] instead of this function
     // async fn nest(&self, id: &str) -> Arc<ThreadController> {
     //     let tc = Arc::new(ThreadController::new(id, self.data.clone()));
@@ -129,7 +148,7 @@ impl MainController {
     //     return tc;
     // }
     pub fn nest(&self) -> ThreadNestBuilder {
-        ThreadNestBuilder::new(self.data.clone())
+        ThreadNestBuilder::new("", self.data.clone())
     }
 }
 
@@ -203,6 +222,6 @@ impl ThreadController {
     //     return tc;
     // }
     pub fn nest(&self) -> ThreadNestBuilder {
-        ThreadNestBuilder::new(self.main_controller_data.clone())
+        ThreadNestBuilder::new(&self.id, self.main_controller_data.clone())
     }
 }

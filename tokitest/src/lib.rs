@@ -27,5 +27,6 @@ pub use tokitest_macro::{
     call,
     network_call,
     isolate,
-    complete
+    complete,
+    heal
 };

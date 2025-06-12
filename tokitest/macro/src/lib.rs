@@ -270,33 +270,52 @@ pub fn call(input: TokenStream) -> TokenStream {
 }
 
 
-/*
-call!(some_func(x, y));            // Expands to: some_func(tokitest_thread_controller.clone(), x, y)
-
-call!(obj.method(a, b));           // Expands to: obj.method(tokitest_thread_controller.clone(), a, b)
-
-call!(obj1.obj2.func(z));          // Expands to: obj1.obj2.func(tokitest_thread_controller.clone(), z)
-*/
-
-
-/*
-from
-    spawn!("child thread", async {
-        // some async code
-    });
-
-to
-    let tcNew = tokitest_thread_controller.nest("child thread").await;
-    tokio::spawn(async move {
-        tcNew.label("INIT").await;
-        let tokitest_thread_controller = tcNew.clone();
-        let result = {
-            // some async code
-        }.await;
-        tcNew.label("END").await;
-        result
-    })
-*/
+/// Use the `spawn!` macro to spawn a testable thread with the new thread ID, using `tokio::spawn`.
+/// 
+/// The Spawned thread inherits it's parent's thread ID and adds the new ID as a prefix.
+/// Threads are blocked until [`run_to!`] is called on their threadID
+/// 
+/// ## Usage
+/// 
+/// ```
+/// // Spawns a thread with threadID `thread1`
+/// spawn!("thread1", async {
+///     label!("label 1");
+/// 
+///     // Spawns a thread with threadID `thread1.child`
+///     spawn!("child", async {
+///         label!("label 2");
+///     });
+///     
+///     label!("label 3");
+/// });
+/// 
+/// // thread1 is blocked. thread1.child has not been spawned yet.
+/// run_to!("thread1", "label 3").await; // Run thread 1 until label 3, this spawns thread1.child
+/// // thread1.child spawns and is immediately blocked.
+/// run_to!("thread1.child", "label 2").await; // Run thread1.child until label 2
+/// ```
+/// 
+/// ## Expansion
+/// ```rust
+/// // from
+/// spawn!("child thread", async {
+///     // some async code
+/// });
+/// 
+/// // to
+/// 
+/// let tcNew = tokitest_thread_controller.nest("child thread").await;
+/// tokio::spawn(async move {
+///     tcNew.label("INIT").await;
+///     let tokitest_thread_controller = tcNew.clone();
+///     let result = {
+///      // some async code
+///     }.await;
+///     tcNew.label("END").await;
+///     result
+/// })
+/// ```
 #[proc_macro]
 pub fn spawn(input: TokenStream) -> TokenStream {
     struct SpawnInput {
@@ -478,6 +497,17 @@ pub fn isolate(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+#[proc_macro]
+pub fn heal(input: TokenStream) -> TokenStream {
+    let thread_id = syn::parse_macro_input!(input as syn::LitStr);
+
+    let expanded = quote! {
+        tokitest_main_controller.heal(#thread_id)
+    };
+
+    TokenStream::from(expanded)
+}
+
 // /*
 // from
 // start_tokitest!()
@@ -560,7 +590,7 @@ pub fn run_to(input: TokenStream) -> TokenStream {
 
 /**
 from
-    complete!("thrad-id").await
+    complete!("thread-id").await
 
 to
     async {
@@ -579,7 +609,7 @@ pub fn complete(input: TokenStream) -> TokenStream {
 }
 
 
-
+/// Mark tests with #[tokiotest::test] to use the testing framework.
 #[proc_macro_attribute]
 pub fn test(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut input_fn = parse_macro_input!(item as ItemFn);
