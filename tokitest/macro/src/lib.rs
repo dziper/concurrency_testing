@@ -166,8 +166,19 @@ pub fn call(input: TokenStream) -> TokenStream {
 
     match expr {
         Expr::Call(ExprCall { func, args, .. }) => {
+            let args_test = quote! { tokitest_thread_controller.clone(), #args };
+            let args_normal = quote! { #args };
             let expanded = quote! {
-                #func(tokitest_thread_controller.clone(), #args)
+                {
+                    #[cfg(test)]
+                    {
+                        #func(#args_test)
+                    }
+                    #[cfg(not(test))]
+                    {
+                        #func(#args_normal)
+                    }
+                }
             };
             TokenStream::from(expanded)
         }
@@ -175,9 +186,20 @@ pub fn call(input: TokenStream) -> TokenStream {
             let method = &method_call.method;
             let receiver = &method_call.receiver;
             let args = &method_call.args;
+            let args_test = quote! { tokitest_thread_controller.clone(), #args };
+            let args_normal = quote! { #args };
 
             let expanded = quote! {
-                #receiver.#method(tokitest_thread_controller.clone(), #args)
+                {
+                    #[cfg(test)]
+                    {
+                        #receiver.#method(#args_test)
+                    }
+                    #[cfg(not(test))]
+                    {
+                        #receiver.#method(#args_normal)
+                    }
+                }
             };
             TokenStream::from(expanded)
         }
@@ -256,15 +278,25 @@ pub fn spawn(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         {
-            // let tcNew = tokitest_thread_controller.nest(#label).await;
-            let tcNew = tokitest_thread_controller.nest().with_id(#label).build().await;
-            tokio::spawn(async move {
-                tcNew.label("INIT").await;
-                let tokitest_thread_controller = tcNew.clone();
-                let result = { #body }.await;
-                tcNew.label("END").await;
-                result
-            })
+            #[cfg(test)]
+            {
+                // let tcNew = tokitest_thread_controller.nest(#label).await;
+                let tcNew = tokitest_thread_controller.nest().with_id(#label).build().await;
+                tokio::spawn(async move {
+                    tcNew.label("INIT").await;
+                    let tokitest_thread_controller = tcNew.clone();
+                    let result = { #body }.await;
+                    tcNew.label("END").await;
+                    result
+                })
+            }
+
+            #[cfg(not(test))]
+            {
+                tokio::spawn(async move {
+                    #body.await
+                })
+            }
         }
     };
 
