@@ -26,18 +26,6 @@ async fn print_num_shared_write(offset: i32, data: Arc<RwLock<Vec<i32>>>) {
 }
 
 
-/*
-
-To do :
-Create a thread to perform tasks
-Allow it to be "annotated" to take in channels OR controller objects?
-When spawning the thread, pass in channels OR controller?
-In the thread, call label function
-In the test, send signals
-
-*/
-
-
 #[tokitest::test]
 async fn test_one_thread() {
     let data: Arc<RwLock<Vec<i32>>> = Arc::new(RwLock::new(vec![]));
