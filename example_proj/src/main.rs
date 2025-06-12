@@ -1,5 +1,5 @@
 use tokitest::{call};
-use example_proj::funcs::my_async_func;
+use example_proj::thing::thingy;
 
 #[cfg(feature = "tokitest")]
 fn main() {}
@@ -14,7 +14,3 @@ async fn main() {
     thingy().await;
 }
 
-
-async fn thingy() {
-    my_async_func().await;
-}
