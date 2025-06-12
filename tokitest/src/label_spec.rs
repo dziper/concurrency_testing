@@ -4,23 +4,43 @@ use regex::Regex;
 /// which can be used to specify a condition for when a label should be hit.
 /// Labels can be composed for flexible condition specification
 /// 
-/// ```rust,ignore
-/// run_to("thread0", StringLabel::new("Label 1")).await;
+/// ```rust
+/// use tokitest::{test, testable, call, label, spawn, run_to, complete};
+/// #[tokitest::test]
+/// async fn test_labels() {
+///     spawn!("thread0", async {
+///         label!("Label 1");
+///         label!("foobar");
+///     
+///         for i in 0..5 {
+///             label!("Label 2");
+///         }
 /// 
-/// // Run to any label that starts with foo in thread0
-/// run_to!("thread0", RegexLabel::new(Regex::new(r"foo*"))).await;
+///         for i in 0..5 {
+///             if i % 2 {
+///                 label!("Label 1");
+///             } else {
+///                 label!("Label 2");
+///             }
+///         }
+///     });
 /// 
-/// // Run to the fifth hit of Label 1 in thread0
-/// run_to!("thread0", RepeatedLabel::new(StringLabel::new("Label 1"), 5)).await;
+///     run_to!("thread0", StringLabel::new("Label 1")).await;
 /// 
-/// // Run to the fifth hit of either Label 1 or Label 2 in thread0
-/// run_to!("thread0", RepeatedLabel::new(
-///     OrLabel::new(vec![
-///         StringLabel::new("Label 1"),
-///         StringLabel::new("Label 2"),
-///     ]), 5)).await;
+///     // Run to any label that starts with foo in thread0
+///     run_to!("thread0", RegexLabel::new(Regex::new(r"foo*"))).await;
+/// 
+///     // Run to the fifth hit of Label 1 in thread0
+///     run_to!("thread0", RepeatedLabel::new(StringLabel::new("Label 2"), 5)).await;
+/// 
+///     // Run to the fifth hit of either Label 1 or Label 2 in thread0
+///     run_to!("thread0", RepeatedLabel::new(
+///         OrLabel::new(vec![
+///             StringLabel::new("Label 1"),
+///             StringLabel::new("Label 2"),
+///         ]), 5)).await;
+/// }
 /// ```
-/// 
 pub trait LabelTrait {
     /// When the test thread reaches a label, this object's register() function will be called with that label
     fn register(&mut self, label: &str);
