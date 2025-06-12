@@ -421,6 +421,17 @@ pub fn isolate(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+#[proc_macro]
+pub fn heal(input: TokenStream) -> TokenStream {
+    let thread_id = syn::parse_macro_input!(input as syn::LitStr);
+
+    let expanded = quote! {
+        tokitest_main_controller.heal(#thread_id)
+    };
+
+    TokenStream::from(expanded)
+}
+
 // /*
 // from
 // start_tokitest!()
