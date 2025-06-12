@@ -1,10 +1,10 @@
 use std::sync::Arc;
 use tokio::{join, sync::RwLock};
 use tokio::time::{sleep, Duration};
-use tokitest::{test, testable, call, label, spawn, run_to, complete};
+use tokitest::{call, label, spawn, run_to};
 
 
-#[testable]
+#[tokitest::testable]
 async fn print_num_shared_write(offset: i32, data: Arc<RwLock<Vec<i32>>>) {
     data.write().await.push(offset + 1);
     sleep(Duration::from_millis(10)).await;
