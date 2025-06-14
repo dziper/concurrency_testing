@@ -81,10 +81,10 @@ impl MainControllerData {
     }
 }
 
-/// Use [`testable::start_tokitest`] in the main test thread, this object manages nesting other threads and running to labels
+/// Mark tests with `#[tokitest::test]` to create a MainController, this object manages nesting other threads and running to labels
 ///
 /// Creating the MainController should be done with the [`testable::start_tokitest`] macro
-/// Manually calling [`MainController::run_to`], [`MainController::isolate`] and [`MainController::nest`] should be avoided, and instead [`testable::run_to`], [`testable::Isolate`], and [`testable::Spawn`] should be used.
+/// Manually calling [`MainController::run_to`], [`MainController::isolate`] and [`MainController::nest`] should be avoided, and instead use macros [`run_to!`], [`isolate!`], and [`spawn!`] should be used.
 #[derive(Debug)]
 pub struct MainController {
     data: Arc<RwLock<MainControllerData>>
@@ -92,22 +92,22 @@ pub struct MainController {
 
 #[allow(dead_code)]
 impl MainController {
-    /// It is recommended to create MainController with [`testable::start_tokitest`]
+    /// It is recommended to create MainController by marking tests with `#[tokitest::test]`
     pub fn new() -> MainController {
         MainController { data: Arc::new(RwLock::new(MainControllerData::new())) }
     }
 
-    /// It is recommended to use [`testable::run_to`] instead of this function
+    /// It is recommended to use [`complete!`] instead of this function
     pub async fn run_to_end(&self, id: &str) {
         self.run_to(id, "END").await;
     }
 
-    /// It is recommended to use [`testable::run_to`] instead of this function
+    /// It is recommended to use [`run_to!`] instead of this function
     pub async fn run_to(&self, id: &str, label: &str) {
         self.run_to_label(id, StringLabel::new(label)).await;
     }
 
-    /// It is recommended to use [`testable::run_to`] instead of this function
+    /// It is recommended to use [`run_to!`] instead of this function
     pub async fn run_to_label(&self, id: &str, label: impl LabelTrait) {
         let thread_controller = self.get_thread_controller(id).await;
         thread_controller.run_to_label(label).await;
@@ -132,7 +132,7 @@ impl MainController {
         };
     }
 
-    /// It is recommended to use [`testable::Isolate`] instead of this function
+    /// It is recommended to use [`isolate!`] instead of this function
     pub async fn isolate(&self, id: &str) {
         self.data.write().await.isolate(id);
     }
@@ -141,7 +141,7 @@ impl MainController {
         self.data.write().await.heal(id);
     }
 
-    // /// It is recommended to use [`testable::Spawn`] or [`testable::SpawnJoinSet`] instead of this function
+    /// It is recommended to use [`spawn!`] or [`spawn_join_set!`] instead of this function
     // async fn nest(&self, id: &str) -> Arc<ThreadController> {
     //     let tc = Arc::new(ThreadController::new(id, self.data.clone()));
     //     self.data.write().await.add_thread(&id, tc.clone()).await;
@@ -164,7 +164,7 @@ pub struct ThreadController {
 #[allow(dead_code)]
 impl ThreadController {
 
-    /// It is recommended to use [`testable::Spawn`] or [`testable::SpawnJoinSet`] instead of this function
+    /// It is recommended to use [`spawn!`] or [`spawn_join_set!`] instead of this function
     // creates a named controller associated with a thread
     fn new(id: &str, mc_data: Arc<RwLock<MainControllerData>>) -> ThreadController {
         //create a channel to send "proceed signal" -- this resumes the thread operation
@@ -206,18 +206,18 @@ impl ThreadController {
         }
     }
 
-    /// It is recommended to use [`testable::Label`] instead of this function
+    /// It is recommended to use [`label!`] instead of this function
     pub async fn label(&self, label: &str) {
         let _ = self.proceed_chan.1.write().await.recv().await.unwrap();
         let _ = self.label_chan.0.send(label.to_string()).await;
     }
 
-    /// It is recommended to use [`testable::NetworkCall`] instead of manually testing for isolated threads.
+    /// It is recommended to use [`network_call!`] instead of manually testing for isolated threads.
     pub async fn is_isolated(&self) -> bool {
         return self.main_controller_data.read().await.is_isolated(&self.id);
     }
 
-    /// It is recommended to use [`testable::Spawn`] or [`testable::SpawnJoinSet`] instead of this function
+    /// It is recommended to use [`spawn!`] or [`spawn_join_set!`] instead of this function
     // async fn nest(&self, id: &str) -> Arc<ThreadController> {
     //     let new_id = self.id.clone() + id; // TODO: Use a seperator?
     //     let tc = Arc::new(ThreadController::new(&new_id, self.main_controller_data.clone()));

@@ -30,7 +30,7 @@ use regex::Regex;
 ///     // Run to any label that starts with foo in thread0
 ///     run_to!("thread0", RegexLabel::new(Regex::new(r"foo*"))).await;
 /// 
-///     // Run to the fifth hit of Label 1 in thread0
+///     // Run to the fifth hit of Label 2 in thread0
 ///     run_to!("thread0", RepeatedLabel::new(StringLabel::new("Label 2"), 5)).await;
 /// 
 ///     // Run to the fifth hit of either Label 1 or Label 2 in thread0
@@ -51,6 +51,46 @@ pub trait LabelTrait {
 }
 
 /// Most basic Label that requires an exact label match to be triggered.
+/// 
+/// Labels can be composed for flexible condition specification
+/// 
+/// ```rust
+/// use tokitest::{test, testable, call, label, spawn, run_to, complete};
+/// #[tokitest::test]
+/// async fn test_labels() {
+///     spawn!("thread0", async {
+///         label!("Label 1");
+///         label!("foobar");
+///     
+///         for i in 0..5 {
+///             label!("Label 2");
+///         }
+/// 
+///         for i in 0..5 {
+///             if i % 2 {
+///                 label!("Label 1");
+///             } else {
+///                 label!("Label 2");
+///             }
+///         }
+///     });
+/// 
+///     run_to!("thread0", StringLabel::new("Label 1")).await;
+/// 
+///     // Run to any label that starts with foo in thread0
+///     run_to!("thread0", RegexLabel::new(Regex::new(r"foo*"))).await;
+/// 
+///     // Run to the fifth hit of Label 2 in thread0
+///     run_to!("thread0", RepeatedLabel::new(StringLabel::new("Label 2"), 5)).await;
+/// 
+///     // Run to the fifth hit of either Label 1 or Label 2 in thread0
+///     run_to!("thread0", RepeatedLabel::new(
+///         OrLabel::new(vec![
+///             StringLabel::new("Label 1"),
+///             StringLabel::new("Label 2"),
+///         ]), 5)).await;
+/// }
+/// ```
 pub struct StringLabel {
     label: String,
     hit: bool
@@ -82,6 +122,46 @@ impl LabelTrait for StringLabel {
 
 /// RegexLabel allows the user to specify a Regex Pattern,
 /// that when matched marks the label as reached
+/// 
+/// Labels can be composed for flexible condition specification
+/// 
+/// ```rust
+/// use tokitest::{test, testable, call, label, spawn, run_to, complete};
+/// #[tokitest::test]
+/// async fn test_labels() {
+///     spawn!("thread0", async {
+///         label!("Label 1");
+///         label!("foobar");
+///     
+///         for i in 0..5 {
+///             label!("Label 2");
+///         }
+/// 
+///         for i in 0..5 {
+///             if i % 2 {
+///                 label!("Label 1");
+///             } else {
+///                 label!("Label 2");
+///             }
+///         }
+///     });
+/// 
+///     run_to!("thread0", StringLabel::new("Label 1")).await;
+/// 
+///     // Run to any label that starts with foo in thread0
+///     run_to!("thread0", RegexLabel::new(Regex::new(r"foo*"))).await;
+/// 
+///     // Run to the fifth hit of Label 2 in thread0
+///     run_to!("thread0", RepeatedLabel::new(StringLabel::new("Label 2"), 5)).await;
+/// 
+///     // Run to the fifth hit of either Label 1 or Label 2 in thread0
+///     run_to!("thread0", RepeatedLabel::new(
+///         OrLabel::new(vec![
+///             StringLabel::new("Label 1"),
+///             StringLabel::new("Label 2"),
+///         ]), 5)).await;
+/// }
+/// ```
 pub struct RegexLabel {
     pattern: Regex,
     hit: bool
@@ -109,6 +189,47 @@ impl LabelTrait for RegexLabel {
 }
 
 
+/// RepeatedLabel allows the user to specify a Label and a number of times it should be reached before blocking the thread.
+/// 
+/// Labels can be composed for flexible condition specification
+/// 
+/// ```rust
+/// use tokitest::{test, testable, call, label, spawn, run_to, complete};
+/// #[tokitest::test]
+/// async fn test_labels() {
+///     spawn!("thread0", async {
+///         label!("Label 1");
+///         label!("foobar");
+///     
+///         for i in 0..5 {
+///             label!("Label 2");
+///         }
+/// 
+///         for i in 0..5 {
+///             if i % 2 {
+///                 label!("Label 1");
+///             } else {
+///                 label!("Label 2");
+///             }
+///         }
+///     });
+/// 
+///     run_to!("thread0", StringLabel::new("Label 1")).await;
+/// 
+///     // Run to any label that starts with foo in thread0
+///     run_to!("thread0", RegexLabel::new(Regex::new(r"foo*"))).await;
+/// 
+///     // Run to the fifth hit of Label 2 in thread0
+///     run_to!("thread0", RepeatedLabel::new(StringLabel::new("Label 2"), 5)).await;
+/// 
+///     // Run to the fifth hit of either Label 1 or Label 2 in thread0
+///     run_to!("thread0", RepeatedLabel::new(
+///         OrLabel::new(vec![
+///             StringLabel::new("Label 1"),
+///             StringLabel::new("Label 2"),
+///         ]), 5)).await;
+/// }
+/// ```
 pub struct RepeatedLabel {
     label: Box<dyn LabelTrait>,
     count: u64,
@@ -142,6 +263,49 @@ impl LabelTrait for RepeatedLabel {
     }
 }
 
+/// Creates a composite matcher that triggers when any of the provided label matchers is satisfied. 
+/// 
+/// This enables flexible synchronization on multiple possible execution paths.
+/// 
+/// Labels can be composed for flexible condition specification
+/// 
+/// ```rust
+/// use tokitest::{test, testable, call, label, spawn, run_to, complete};
+/// #[tokitest::test]
+/// async fn test_labels() {
+///     spawn!("thread0", async {
+///         label!("Label 1");
+///         label!("foobar");
+///     
+///         for i in 0..5 {
+///             label!("Label 2");
+///         }
+/// 
+///         for i in 0..5 {
+///             if i % 2 {
+///                 label!("Label 1");
+///             } else {
+///                 label!("Label 2");
+///             }
+///         }
+///     });
+/// 
+///     run_to!("thread0", StringLabel::new("Label 1")).await;
+/// 
+///     // Run to any label that starts with foo in thread0
+///     run_to!("thread0", RegexLabel::new(Regex::new(r"foo*"))).await;
+/// 
+///     // Run to the fifth hit of Label 2 in thread0
+///     run_to!("thread0", RepeatedLabel::new(StringLabel::new("Label 2"), 5)).await;
+/// 
+///     // Run to the fifth hit of either Label 1 or Label 2 in thread0
+///     run_to!("thread0", RepeatedLabel::new(
+///         OrLabel::new(vec![
+///             StringLabel::new("Label 1"),
+///             StringLabel::new("Label 2"),
+///         ]), 5)).await;
+/// }
+/// ```
 pub struct OrLabel {
     labels: Vec<Box<dyn LabelTrait>>,
 }

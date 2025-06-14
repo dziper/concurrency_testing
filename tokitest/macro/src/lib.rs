@@ -363,6 +363,30 @@ pub fn spawn(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+
+/// Use the `spawn_join_set!` macro to spawn a testable thread with the new thread ID in the given [`tokio::task::JoinSet`].
+/// 
+/// ## Usage
+/// 
+/// ```rust, ignore
+/// let mut set: JoinSet<i32> = JoinSet::new();
+/// for i in 0..5 {
+///     // let dc = data.clone();
+///     spawn_join_set!(&format!("spawned{}", i), set, async {
+///         // dc.write().await.push(i);
+///         label!("label 1");
+///         return i;
+///     });
+/// }
+/// 
+/// join! {
+///     run_to!("spawned0", "label 1"),
+///     run_to!("spawned1", "label 1"),
+///     run_to!("spawned2", "label 1"),
+///     complete!("spawned3"),
+///     complete!("spawned4"),
+/// };
+/// ```
 #[proc_macro]
 pub fn spawn_join_set(item: TokenStream) -> TokenStream {
     struct SpawnJoinSetInput {
@@ -422,19 +446,23 @@ pub fn spawn_join_set(item: TokenStream) -> TokenStream {
 }
 
 
-/*
-from
-    Networkcall!(client.get("/api/data").send(), callback_on_error());
-
-to
-    async {
-        if tokitest_thread_controller.networkDead() {
-            return callback_on_error();
-        } else {
-            return client.get("/api/data").send();
-        }
-    }
-*/
+/// Mark a function call as a Network Call, causing it to return an error IF this thread or its parent is Isolated.
+/// 
+/// ## Usage
+/// 
+/// ```rust
+/// 
+/// async fn mock_http_error_handler() -> Result<String, String> {
+///     Err("Network is dead".to_string())
+/// }
+/// ...
+/// spawn!("thread0", async {
+///     let result = network_call!(http_request(), mock_http_error_handler()).await;
+/// });
+/// 
+/// isolate!("thread0").await;
+/// complete!("thread0").await;     // network call will fail, and result will be Err("Network is dead") 
+/// ```
 #[proc_macro]
 pub fn network_call(input: TokenStream) -> TokenStream {
     struct NetworkCallInput {
@@ -477,15 +505,15 @@ pub fn network_call(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-/**
-from
-    Isolate!("thrad-id")
-
-to
-    async {
-        tokitest_main_controller.isolate("thread_id").await
-    }
-*/
+/// Isolate a thread to cause [`network_call!`] of it and its children to fail.
+/// 
+/// ## Usage
+/// ```rust
+/// isolate!("thread0").await;
+/// // Network calls in thread0 will fail
+/// heal!("thread0").await;
+/// // Network calls in thread0 will succeed
+/// ``
 #[proc_macro]
 pub fn isolate(input: TokenStream) -> TokenStream {
     let thread_id = syn::parse_macro_input!(input as syn::LitStr);
@@ -497,6 +525,15 @@ pub fn isolate(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+/// Heal the network of a thread to cause [`network_call!`] of it and its children to succeed.
+/// 
+/// ## Usage
+/// ```rust
+/// isolate!("thread0").await;
+/// // Network calls in thread0 will fail
+/// heal!("thread0").await;
+/// // Network calls in thread0 will succeed
+/// ``
 #[proc_macro]
 pub fn heal(input: TokenStream) -> TokenStream {
     let thread_id = syn::parse_macro_input!(input as syn::LitStr);
@@ -507,21 +544,6 @@ pub fn heal(input: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
-
-// /*
-// from
-// start_tokitest!()
-// to
-
-// */
-// #[proc_macro]
-// pub fn start_tokitest(_input: TokenStream) -> TokenStream {
-//     let expanded = quote! {
-//         let tokitest_main_controller = Arc::new(::tokitest::controller::MainController::new());
-//         let tokitest_thread_controller = tokitest_main_controller.nest("").await;
-//     };
-//     TokenStream::from(expanded)
-// }
 
 struct RunToArgs {
     args: Punctuated<Expr, Token![,]>,
@@ -536,7 +558,23 @@ impl Parse for RunToArgs {
 }
 
 
-/// Thingy
+/// Unblock a thread until it hits a specified label.
+/// 
+/// Strings or objects with LabelTrait may be used (see RegexLabel, OrLabel, RepeatedLabel)
+/// 
+/// Developer's responsibility to avoid Deadlock in test
+/// - Ensure the thread specified exists or will be spawned
+/// - Ensure the Label specified exists
+/// - Ensure the Label specified is reachable
+/// 
+/// ## Usage
+/// ```
+/// // Unblock thread 0, then block it when it reaches label 1
+/// run_to!("thread0", "label 1").await;
+/// 
+/// // Unblock thread 1, then block it after it reaches label 2 5 times.
+/// run_to!("thread1", RepeatedLabel::new(StringLabel::new("label 2", 5))).await;
+/// ```
 #[proc_macro]
 pub fn run_to(input: TokenStream) -> TokenStream {
     let RunToArgs { args } = syn::parse_macro_input!(input as RunToArgs);
@@ -588,15 +626,13 @@ pub fn run_to(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-/**
-from
-    complete!("thread-id").await
-
-to
-    async {
-        tokitest_main_controller.run_to_end("thread_id").await
-    }
-*/
+/// Runs a thread to completion. Equivalent to `run_to!("threadid", "END")`
+/// 
+/// ## Usage
+/// 
+/// ```
+/// complete!("threadid").await;
+/// ```
 #[proc_macro]
 pub fn complete(input: TokenStream) -> TokenStream {
     let thread_id = syn::parse_macro_input!(input as syn::LitStr);
@@ -609,7 +645,9 @@ pub fn complete(input: TokenStream) -> TokenStream {
 }
 
 
-/// Mark tests with #[tokiotest::test] to use the testing framework.
+/// Mark tests with #[tokitest::test] to use the testing framework.
+/// 
+/// Run tokitests with `cargo test --features tokitest`
 #[proc_macro_attribute]
 pub fn test(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut input_fn = parse_macro_input!(item as ItemFn);
