@@ -191,6 +191,9 @@ impl ThreadController {
             let _ = self.proceed_chan.0.send(true).await;
             match self.label_chan.1.write().await.recv().await {
                 Some(recv_label) => {
+                    if recv_label.ends_with(" block") {
+                        continue;
+                    }
                     label.register(&recv_label);
                     if label.reached() {
                         break
